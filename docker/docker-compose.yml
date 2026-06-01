@@ -1,0 +1,174 @@
+services:
+  # ========== 数据库 ==========
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: agent
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: 1234
+    # ports: 内部通信使用 Docker DNS (postgres:5432)，无需暴露到宿主机
+    # 如需从宿主机连接，取消下面注释并换一个可用端口
+    # ports:
+    #   - "15432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d agent"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ========== 缓存 ==========
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ========== 后端服务 1：用户与商品 ==========
+  user-product:
+    build:
+      context: ..
+      dockerfile: service-user-product/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:1234@postgres:5432/agent}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-dev-internal-token}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ========== 后端服务 2：购物车与交易 ==========
+  order-trade:
+    build:
+      context: ..
+      dockerfile: service-order-trade/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:1234@postgres:5432/agent}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-dev-internal-token}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ========== 后端服务 3：管理后台 ==========
+  admin:
+    build:
+      context: ..
+      dockerfile: service-admin/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:1234@postgres:5432/agent}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-dev-internal-token}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ========== AI 客服服务 ==========
+  ai-service:
+    build:
+      context: ..
+      dockerfile: ai-service/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-dev-internal-token}
+      - SHOP_INTERNAL_URL=http://user-product:8001/internal
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ========== 前端 - React + Vite（开发模式，支持热重载） ==========
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    # 不暴露 host 端口，通过 nginx (localhost:80) 统一访问
+    # 如需 Vite 热重载，在本地运行：cd frontend && npm run dev
+    volumes:
+      - ../frontend/src:/app/src
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ========== Nginx 反向代理 ==========
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - user-product
+      - order-trade
+      - admin
+      - ai-service
+      - frontend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pgdata:
+  redisdata:

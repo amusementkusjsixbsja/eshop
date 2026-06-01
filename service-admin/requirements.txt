@@ -1,0 +1,6 @@
+# shared 库由 Dockerfile 提前安装
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+psycopg2-binary>=2.9.9
+redis>=5.0.0
+pyjwt>=2.10.1
