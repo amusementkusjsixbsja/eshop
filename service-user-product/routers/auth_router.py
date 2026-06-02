@@ -7,40 +7,24 @@
   - PUT  /auth/address — 更新收货地址
 """
 
-import os
-from datetime import datetime, timedelta
-
-import bcrypt
-import jwt
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, field_validator
 
 from shop_shared.common import success_response
 from shop_shared.common.exceptions import AuthenticationError, BusinessError
-from shop_shared.infrastructure.database import get_cursor
 from shop_shared.middleware import get_current_user
 
+from services.user_service import (
+    create_user,
+    get_user_by_email,
+    get_user_by_id,
+    update_user_address,
+    check_email_exists,
+    verify_password,
+    generate_jwt,
+)
+
 router = APIRouter(prefix="/auth", tags=["认证"])
-
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
-
-
-def generate_jwt(user_id: int, email: str, role: str) -> str:
-    """生成 JWT Token。"""
-    payload = {
-        "user_id": user_id,
-        "email": email,
-        "role": role,
-        "exp": datetime.now() + timedelta(hours=JWT_EXPIRATION_HOURS),
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-
-def hash_password(password: str) -> str:
-    """使用 bcrypt 加密密码。"""
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 # ─── Pydantic 请求模型 ───
@@ -81,55 +65,37 @@ class AddressRequest(BaseModel):
         return v.strip()
 
 
-# ─── 路由（Stub 版本，返回 mock 数据）───
+# ─── 路由 ───
 
 @router.post("/register")
 def register(body: RegisterRequest):
     """用户注册。"""
-    # 1. 校验邮箱唯一性
-    with get_cursor() as cur:
-        cur.execute("SELECT id FROM shop.users WHERE email = %s", (body.email,))
-        if cur.fetchone():
-            raise BusinessError("该邮箱已被注册")
-        
-        # 2. bcrypt 加密密码
-        hashed_password = hash_password(body.password)
-        
-        # 3. 插入用户数据
-        cur.execute(
-            "INSERT INTO shop.users (email, password, nickname, created_at, updated_at) "
-            "VALUES (%s, %s, %s, NOW(), NOW()) RETURNING id",
-            (body.email, hashed_password, body.nickname)
-        )
-        user = cur.fetchone()
+    if check_email_exists(body.email):
+        raise BusinessError("该邮箱已被注册")
+    
+    user = create_user(body.email, body.password, body.nickname)
+    
+    if not user:
+        raise BusinessError("注册失败")
     
     return success_response({
         "id": user["id"],
-        "email": body.email,
-        "nickname": body.nickname,
+        "email": user["email"],
+        "nickname": user["nickname"],
     })
 
 
 @router.post("/login")
 def login(body: LoginRequest):
     """用户登录，返回 JWT Token。"""
-    # 1. 根据邮箱查询用户
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT id, email, password, nickname, role FROM shop.users WHERE email = %s",
-            (body.email,)
-        )
-        user = cur.fetchone()
+    user = get_user_by_email(body.email)
     
-    # 2. 校验用户存在
     if not user:
         raise AuthenticationError("邮箱或密码错误")
     
-    # 3. bcrypt 比对密码
-    if not bcrypt.checkpw(body.password.encode(), user["password"].encode()):
+    if not verify_password(body.password, user["password"]):
         raise AuthenticationError("邮箱或密码错误")
     
-    # 4. 生成 JWT Token
     token = generate_jwt(user["id"], user["email"], user["role"])
     
     return success_response({
@@ -146,34 +112,18 @@ def login(body: LoginRequest):
 @router.get("/me")
 def get_profile(user: dict = Depends(get_current_user)):
     """获取当前登录用户信息。"""
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT id, email, nickname, role, address FROM shop.users WHERE id = %s",
-            (user["user_id"],)
-        )
-        user_data = cur.fetchone()
+    user_data = get_user_by_id(user["user_id"])
     
     if not user_data:
         raise AuthenticationError("用户不存在")
     
-    return success_response({
-        "id": user_data["id"],
-        "email": user_data["email"],
-        "nickname": user_data["nickname"],
-        "role": user_data["role"],
-        "address": user_data["address"],
-    })
+    return success_response(user_data)
 
 
 @router.put("/address")
 def update_address(body: AddressRequest, user: dict = Depends(get_current_user)):
     """更新收货地址。"""
-    with get_cursor() as cur:
-        cur.execute(
-            "UPDATE shop.users SET address = %s, updated_at = NOW() WHERE id = %s RETURNING id, address",
-            (body.address, user["user_id"])
-        )
-        result = cur.fetchone()
+    result = update_user_address(user["user_id"], body.address)
     
     if not result:
         raise AuthenticationError("用户不存在")
