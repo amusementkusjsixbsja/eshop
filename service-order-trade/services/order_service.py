@@ -1,6 +1,8 @@
 """订单业务逻辑层。"""
 
+import json
 from typing import Optional
+from datetime import datetime, timedelta
 
 from psycopg2 import extras
 
@@ -157,6 +159,21 @@ def pay_order(order_id: int, user_id: int) -> dict:
             INSERT INTO shop.payment_records (order_id, amount, method)
             VALUES (%s, %s, 'mock')
         """, (order_id, order["total_amount"]))
+
+        tracking_number = f"SF{order_id}{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        estimated_delivery = datetime.now() + timedelta(days=3)
+        timeline = [
+            {"time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "status": "picked_up", "location": "深圳仓库"},
+            {"time": (datetime.now() + timedelta(hours=6)).strftime('%Y-%m-%d %H:%M:%S'), "status": "in_transit", "location": "深圳集散中心"},
+            {"time": (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S'), "status": "in_transit", "location": "广州中转"},
+            {"time": (datetime.now() + timedelta(hours=36)).strftime('%Y-%m-%d %H:%M:%S'), "status": "out_for_delivery", "location": "派送中"},
+        ]
+
+        cur.execute("""
+            INSERT INTO shop.logistics_records 
+            (order_id, tracking_number, carrier, status, current_location, estimated_delivery, timeline)
+            VALUES (%s, %s, 'SF-Express', 'picked_up', '深圳仓库', %s, %s)
+        """, (order_id, tracking_number, estimated_delivery, json.dumps(timeline)))
 
         conn.commit()
         return {"id": order_id, "status": "paid", "paid_at": paid_at}
