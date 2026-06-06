@@ -14,7 +14,7 @@
 import axios from 'axios'
 
 const client = axios.create({
-  baseURL: '/api/shop',
+  baseURL: 'http://localhost:8001',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
