@@ -11,49 +11,63 @@ from fastapi import APIRouter, Depends, Query
 
 from shop_shared.common import success_response
 from shop_shared.middleware import verify_internal_token
+from shop_shared.common.exceptions import NotFoundError
 
-router = APIRouter(tags=["内部接口"], dependencies=[Depends(verify_internal_token)])
+from services.order_service import get_user_orders, get_order_detail
+from services.logistics_service import get_logistics_by_order
+from services.after_sale_service import get_user_after_sales
+from shop_shared.infrastructure.database import get_cursor
+
+router = APIRouter(prefix="/internal", tags=["内部接口"], dependencies=[Depends(verify_internal_token)])
 
 
 @router.get("/orders")
 def internal_list_orders(
     user_id: int = Query(..., description="用户 ID"),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    status: str = Query(None, description="状态筛选"),
+    page: int = Query(1, ge=1, description="页码"),
+    size: int = Query(20, ge=1, le=100, description="每页数量"),
 ):
     """查询用户订单列表。"""
-    # TODO: 小C — SELECT * FROM shop.orders WHERE user_id = %s ORDER BY created_at DESC
-    from .order_router import MOCK_ORDERS
-    items = [o for o in MOCK_ORDERS if o["user_id"] == user_id]
-    return success_response({"items": items, "total": len(items), "page": page, "size": size})
+    items, total = get_user_orders(user_id, status, page, size)
+    return success_response({"items": items, "total": total, "page": page, "size": size})
 
 
 @router.get("/orders/{order_id}")
 def internal_get_order(order_id: int):
-    """查询订单详情。"""
-    # TODO: 小C — SELECT ... JOIN shop.order_items
-    from .order_router import MOCK_ORDERS
-    order = next((o for o in MOCK_ORDERS if o["id"] == order_id), None)
-    if not order:
-        from shop_shared.common.exceptions import NotFoundError
-        raise NotFoundError("订单不存在")
-    return success_response(order)
+    """查询订单详情（含明细）。"""
+    # 内部接口不校验 user_id，只需要订单存在即可
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT o.*, array_agg(oi) as items
+            FROM shop.orders o
+            LEFT JOIN shop.order_items oi ON o.id = oi.order_id
+            WHERE o.id = %s
+            GROUP BY o.id
+        """, (order_id,))
+        order = cur.fetchone()
+        if not order:
+            raise NotFoundError("订单不存在")
+        return success_response(order)
 
 
 @router.get("/logistics")
-def internal_get_logistics(user_id: int = Query(...)):
-    """查询物流信息。"""
-    # TODO: 小C — SELECT l.* FROM shop.logistics_records l
-    #            JOIN shop.orders o ON l.order_id = o.id
-    #            WHERE o.user_id = %s
-    from .logistics_router import MOCK_LOGISTICS
-    return success_response({"items": list(MOCK_LOGISTICS.values())})
+def internal_get_logistics(user_id: int = Query(..., description="用户 ID")):
+    """查询用户所有物流信息。"""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT lr.*
+            FROM shop.logistics_records lr
+            JOIN shop.orders o ON lr.order_id = o.id
+            WHERE o.user_id = %s
+            ORDER BY o.created_at DESC
+        """, (user_id,))
+        logistics = cur.fetchall()
+        return success_response({"items": logistics})
 
 
 @router.get("/after-sales")
-def internal_get_after_sales(user_id: int = Query(...)):
-    """查询售后申请。"""
-    # TODO: 小C — SELECT * FROM shop.after_sale_requests WHERE user_id = %s
-    from .after_sale_router import MOCK_AFTER_SALES
-    items = [a for a in MOCK_AFTER_SALES if a["user_id"] == user_id]
+def internal_get_after_sales(user_id: int = Query(..., description="用户 ID")):
+    """查询用户售后申请。"""
+    items = get_user_after_sales(user_id)
     return success_response({"items": items})
