@@ -17,6 +17,12 @@ from pydantic import BaseModel
 
 from shop_shared.common import success_response
 from shop_shared.middleware import get_current_admin
+from services.category_service import (
+    get_all_categories,
+    create_category as svc_create_category,
+    update_category as svc_update_category,
+    delete_category as svc_delete_category,
+)
 
 router = APIRouter(prefix="/categories", tags=["分类管理"])
 
@@ -31,56 +37,29 @@ class UpdateCategoryRequest(BaseModel):
     parent_id: int | None = None
 
 
-MOCK_CATEGORIES = [
-    {"id": 1, "name": "智能家居", "parent_id": None, "sort_order": 1},
-    {"id": 2, "name": "数码配件", "parent_id": None, "sort_order": 2},
-    {"id": 3, "name": "安防设备", "parent_id": None, "sort_order": 3},
-    {"id": 10, "name": "智能门锁", "parent_id": 1, "sort_order": 1},
-    {"id": 11, "name": "智能照明", "parent_id": 1, "sort_order": 2},
-    {"id": 20, "name": "耳机", "parent_id": 2, "sort_order": 1},
-    {"id": 21, "name": "充电设备", "parent_id": 2, "sort_order": 2},
-    {"id": 30, "name": "摄像头", "parent_id": 3, "sort_order": 1},
-    {"id": 31, "name": "门铃", "parent_id": 3, "sort_order": 2},
-]
-
-
 @router.get("")
 def list_categories(admin: dict = Depends(get_current_admin)):
     """全部分类列表。"""
-    # TODO: 小D — SELECT * FROM shop.categories ORDER BY sort_order
-    return success_response({"items": MOCK_CATEGORIES})
+    items = get_all_categories()
+    return success_response({"items": items})
 
 
 @router.post("")
 def create_category(body: CreateCategoryRequest, admin: dict = Depends(get_current_admin)):
     """创建分类。"""
-    # TODO: 小D — INSERT INTO shop.categories (name, parent_id) RETURNING id
-    # 然后 delete_cache("categories:tree")
-    return success_response({
-        "id": 100,
-        "name": body.name,
-        "parent_id": body.parent_id,
-    })
+    row = svc_create_category(body.name, body.parent_id)
+    return success_response(row)
 
 
 @router.put("/{category_id}")
 def update_category(category_id: int, body: UpdateCategoryRequest, admin: dict = Depends(get_current_admin)):
     """编辑分类。"""
-    # TODO: 小D — UPDATE shop.categories SET name=%s, parent_id=%s WHERE id=%s
-    # 然后 delete_cache("categories:tree")
-    return success_response({
-        "id": category_id,
-        "name": body.name,
-        "parent_id": body.parent_id,
-    })
+    row = svc_update_category(category_id, body.name, body.parent_id)
+    return success_response(row)
 
 
 @router.delete("/{category_id}")
 def delete_category(category_id: int, admin: dict = Depends(get_current_admin)):
     """删除分类（有商品引用则拒绝）。"""
-    # TODO: 小D —
-    # 1. SELECT COUNT(*) FROM shop.products WHERE category_id = %s
-    # 2. 有引用则 raise BusinessError("该分类下有商品，无法删除")
-    # 3. DELETE FROM shop.categories WHERE id = %s
-    # 4. delete_cache("categories:tree")
+    svc_delete_category(category_id)
     return success_response({"message": "删除成功"})
