@@ -21,15 +21,19 @@ def get_products(
     category_id: Optional[int] = None,
     keyword: Optional[str] = None,
     page: int = 1,
-    size: int = 20
+    size: int = 20,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """商品列表查询（支持分类筛选、关键词搜索、分页）。
+    """商品列表查询（支持分类筛选、关键词搜索、价格区间、分页）。
 
     Args:
         category_id: 分类 ID（可选，含子分类）
         keyword: 搜索关键词（可选，匹配 name 或 description）
         page: 页码（从 1 开始）
         size: 每页数量
+        min_price: 最低价格（可选）
+        max_price: 最高价格（可选）
 
     Returns:
         包含 items 和 total 的字典
@@ -47,6 +51,14 @@ def get_products(
         if keyword:
             where_clauses.append("(p.name ILIKE %s OR p.description ILIKE %s)")
             params.extend([f"%{keyword}%", f"%{keyword}%"])
+
+        if min_price is not None:
+            where_clauses.append("p.price >= %s")
+            params.append(min_price)
+
+        if max_price is not None:
+            where_clauses.append("p.price <= %s")
+            params.append(max_price)
 
         where_sql = " AND ".join(where_clauses)
 

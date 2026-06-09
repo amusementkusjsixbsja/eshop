@@ -29,12 +29,14 @@ def get_user(user_id: int):
 
 @router.get("/products/search")
 def search_products(
-    keyword: str = Query(..., min_length=1),
+    keyword: str = Query(..., min_length=0),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    min_price: float = Query(None, ge=0),
+    max_price: float = Query(None, ge=0),
 ):
-    """内部接口：搜索商品。"""
-    result = get_products(keyword=keyword, page=page, size=size)
+    """内部接口：搜索商品（支持关键词 + 价格区间）。"""
+    result = get_products(keyword=keyword, page=page, size=size, min_price=min_price, max_price=max_price)
     return success_response(result)
 
 
