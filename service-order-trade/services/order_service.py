@@ -161,12 +161,11 @@ def pay_order(order_id: int, user_id: int) -> dict:
         """, (order_id, order["total_amount"]))
 
         tracking_number = f"SF{order_id}{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        estimated_delivery = datetime.now() + timedelta(days=3)
+        estimated_delivery = datetime.now() + timedelta(minutes=5)
+
+        # ── 只放第1个节点（已揽件），后续由调度器每分钟追加 ──
         timeline = [
-            {"time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "status": "picked_up", "location": "深圳仓库"},
-            {"time": (datetime.now() + timedelta(hours=6)).strftime('%Y-%m-%d %H:%M:%S'), "status": "in_transit", "location": "深圳集散中心"},
-            {"time": (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S'), "status": "in_transit", "location": "广州中转"},
-            {"time": (datetime.now() + timedelta(hours=36)).strftime('%Y-%m-%d %H:%M:%S'), "status": "out_for_delivery", "location": "派送中"},
+            {"time": (datetime.now()).strftime('%H:%M'), "status": "已揽件", "location": "深圳仓库"},
         ]
 
         cur.execute("""

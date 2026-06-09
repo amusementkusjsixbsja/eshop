@@ -1,19 +1,15 @@
-"""定时任务 — 超时订单自动取消。
+"""定时任务 — 超时订单自动取消 + 物流状态自动推进。
 
-★ 小C：实现此函数，替换 print 为真实的数据库操作。
+超时取消（每 5 分钟）：
+  - 扫描超时未支付订单，逐条 FOR UPDATE + 取消 + 回滚库存 + 分布式锁
 
-流程（对照需求文档 §8.5）：
-  1. SELECT id FROM shop.orders WHERE status='pending' AND created_at < NOW() - INTERVAL '30 min'
-  2. 逐条执行（每条独立事务）：
-     a. FOR UPDATE 锁定订单
-     b. 二次校验 status 仍为 pending
-     c. UPDATE status = cancelled
-     d. 回滚库存：UPDATE shop.products SET stock = stock + quantity
-     e. COMMIT
-  3. 记录取消日志
-
-调度配置（在 main.py 中）：每 5 分钟触发
+物流推进（每 30 秒）：
+  - 扫描未完成的物流记录，每 1 分钟推进一个节点
+  - 5 分钟完成完整配送流程：已揽件 → 运输中 → 运输中 → 派送中 → 已签收
 """
+
+import json
+from datetime import datetime, timedelta
 
 from shop_shared.common.logger import get_logger
 from shop_shared.infrastructure.database import get_connection, release_connection
@@ -23,7 +19,98 @@ from psycopg2 import extras
 logger = get_logger("scheduler")
 
 LOCK_KEY = "scheduler:cancel_timeout_orders"
-LOCK_TIMEOUT = 300  # 5 分钟（与调度周期一致）
+LOCK_TIMEOUT = 300
+
+# ── 物流节点定义（按分钟推进） ──
+
+LOGISTICS_NODES = [
+    (0, "picked_up", "深圳仓库"),
+    (1, "in_transit", "深圳集散中心"),
+    (2, "in_transit", "广州中转"),
+    (3, "out_for_delivery", "派送中"),
+    (5, "delivered", "您的手中"),
+]
+
+# 英文状态 → 中文（timeline 节点用中文）
+LOGISTICS_NODES_CN = {
+    "picked_up": "已揽件",
+    "in_transit": "运输中",
+    "out_for_delivery": "派送中",
+    "delivered": "已签收",
+}
+
+
+def advance_logistics():
+    """物流状态推进：每 30s 调度，每分钟推进一个节点，5 分钟送达。
+
+    查找所有未完成的物流记录，根据创建时间计算应处的节点并更新。
+    """
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=extras.RealDictCursor)
+        # 查找所有未送达的物流记录
+        cur.execute("""
+            SELECT id, order_id, status, current_location, created_at, timeline
+            FROM shop.logistics_records
+            WHERE status != 'delivered'
+        """)
+        records = cur.fetchall()
+        if not records:
+            return
+
+        for rec in records:
+            now = datetime.now()
+            created = rec["created_at"].replace(tzinfo=None) if rec["created_at"] else now
+            elapsed_minutes = (now - created).total_seconds() / 60.0
+
+            # 确定应处的节点索引
+            target_idx = -1
+            for idx, (minute, status, location) in enumerate(LOGISTICS_NODES):
+                if elapsed_minutes >= minute and (idx == len(LOGISTICS_NODES) - 1 or elapsed_minutes < LOGISTICS_NODES[idx + 1][0]):
+                    target_idx = idx
+                    break
+            if target_idx < 0:
+                continue
+
+            _, target_status, target_location = LOGISTICS_NODES[target_idx]
+
+            # 只有状态或位置变化时才更新
+            if rec["status"] != target_status or rec["current_location"] != target_location:
+                # 解析已有 timeline
+                existing_timeline = []
+                if rec.get("timeline"):
+                    raw = rec["timeline"]
+                    if isinstance(raw, str):
+                        existing_timeline = json.loads(raw)
+                    elif isinstance(raw, list):
+                        existing_timeline = raw
+
+                # 判断是否为旧格式（已预置全部5个节点）→ 不追加，只更新状态
+                is_old_format = len(existing_timeline) >= 5
+
+                if not is_old_format:
+                    new_node = {
+                        "time": now.strftime('%H:%M'),
+                        "status": LOGISTICS_NODES_CN.get(target_status, target_status),
+                        "location": target_location,
+                    }
+                    existing_timeline.append(new_node)
+                    updated_timeline_json = json.dumps(existing_timeline, ensure_ascii=False)
+                else:
+                    updated_timeline_json = json.dumps(existing_timeline, ensure_ascii=False)
+
+                cur.execute("""
+                    UPDATE shop.logistics_records
+                    SET status = %s, current_location = %s, timeline = %s, updated_at = NOW()
+                    WHERE id = %s
+                """, (target_status, target_location, updated_timeline_json, rec["id"]))
+                logger.info(f"[物流推进] 订单 {rec['order_id']} → {LOGISTICS_NODES_CN.get(target_status,target_status)} @ {target_location}")
+
+        conn.commit()
+    except Exception as e:
+        logger.error(f"[物流推进] 出错: {e}")
+    finally:
+        release_connection(conn)
 
 
 def cancel_timeout_orders():

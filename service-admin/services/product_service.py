@@ -102,6 +102,27 @@ def update_product(product_id: int, data: dict) -> dict:
     return row
 
 
+def delete_product(product_id: int) -> None:
+    """删除商品（检查订单引用，有引用则拒绝）。"""
+    with get_cursor() as cur:
+        # 检查商品是否存在
+        cur.execute("SELECT id FROM shop.products WHERE id = %s", (product_id,))
+        if not cur.fetchone():
+            raise NotFoundError("商品不存在")
+
+        # 检查订单中是否有引用
+        cur.execute(
+            "SELECT COUNT(*) AS cnt FROM shop.order_items WHERE product_id = %s",
+            (product_id,),
+        )
+        if cur.fetchone()["cnt"] > 0:
+            raise BusinessError("该商品已有订单记录，无法删除，请下架处理")
+
+        cur.execute("DELETE FROM shop.products WHERE id = %s", (product_id,))
+
+    delete_keys([f"product:{product_id}", "hot:products:list"])
+
+
 def toggle_product_status(product_id: int, status: str) -> dict:
     """上下架商品。"""
     if status not in ("on_sale", "off_sale"):

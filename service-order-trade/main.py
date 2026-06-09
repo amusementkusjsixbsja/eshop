@@ -37,7 +37,7 @@ def _register_scheduler_jobs():
     """注册定时任务。"""
     scheduler = get_scheduler()
     if scheduler:
-        from services.scheduler_jobs import cancel_timeout_orders
+        from services.scheduler_jobs import cancel_timeout_orders, advance_logistics
         scheduler.add_job(
             cancel_timeout_orders,
             trigger="interval",
@@ -46,6 +46,15 @@ def _register_scheduler_jobs():
             replace_existing=True,
         )
         logger.info("定时任务已注册: 超时订单自动取消 (每5分钟)")
+
+        scheduler.add_job(
+            advance_logistics,
+            trigger="interval",
+            seconds=30,
+            id="advance_logistics",
+            replace_existing=True,
+        )
+        logger.info("定时任务已注册: 物流状态推进 (每30秒)")
 
 
 app = FastAPI(

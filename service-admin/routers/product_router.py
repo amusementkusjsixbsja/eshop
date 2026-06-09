@@ -24,6 +24,7 @@ from services.product_service import (
     list_all_products as svc_list_all_products,
     create_product as svc_create_product,
     update_product as svc_update_product,
+    delete_product as svc_delete_product,
     toggle_product_status as svc_toggle_product_status,
 )
 
@@ -77,6 +78,13 @@ def update_product(product_id: int, body: UpdateProductRequest, admin: dict = De
     data = body.model_dump(exclude_none=True)
     row = svc_update_product(product_id, data)
     return success_response(row)
+
+
+@router.delete("/{product_id}")
+def delete_product(product_id: int, admin: dict = Depends(get_current_admin)):
+    """删除商品。"""
+    svc_delete_product(product_id)
+    return success_response({"message": "删除成功"})
 
 
 @router.patch("/{product_id}/status")

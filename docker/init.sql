@@ -49,6 +49,20 @@ CREATE TABLE IF NOT EXISTS shop.users (
     updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 用户地址表（支持多地址管理）
+CREATE TABLE IF NOT EXISTS shop.user_addresses (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES shop.users(id),
+    label       VARCHAR(50) DEFAULT '',
+    name        VARCHAR(100) NOT NULL,
+    phone       VARCHAR(20) NOT NULL,
+    address     TEXT NOT NULL,
+    is_default  BOOLEAN DEFAULT FALSE,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_user_addresses_user ON shop.user_addresses(user_id);
+
 -- 购物车表
 CREATE TABLE IF NOT EXISTS shop.cart_items (
     id          SERIAL PRIMARY KEY,
@@ -177,14 +191,14 @@ CREATE INDEX IF NOT EXISTS idx_messages_conv
 -- 预置种子数据
 -- ============================================
 
--- 管理员账号（密码: admin123，默认 bcrypt 哈希）
+-- 管理员账号（密码: admin123）
 INSERT INTO shop.users (email, password, nickname, role)
-VALUES ('admin@shop.local', '$2b$12$LJ3m4ys3Lk0TSwHnbfOMiOXPm1Qlq5Qq5Qq5Qq5Qq5Qq5Qq5Qq5O', 'Admin', 'admin')
+VALUES ('admin@shop.local', '$2b$12$cUhDYIcu/4WQ45jYFwZQn.Sosq61H0qcTwGRyMXldc84GELg.EFEi', 'Admin', 'admin')
 ON CONFLICT (email) DO NOTHING;
 
 -- 测试用户（密码: 123456）
 INSERT INTO shop.users (email, password, nickname, role, address)
-VALUES ('user@test.com', '$2b$12$LJ3m4ys3Lk0TSwHnbfOMiOXPm1Qlq5Qq5Qq5Qq5Qq5Qq5Qq5Qq5O', '测试用户', 'user', '广东省深圳市南山区科技园')
+VALUES ('user@test.com', '$2b$12$pA4dNtoZ2vqeN4gXT.ioYuvi2RkSVaLGoOG7axczsbPXY4rn8ULgu', '测试用户', 'user', '广东省深圳市南山区科技园')
 ON CONFLICT (email) DO NOTHING;
 
 -- 分类数据
