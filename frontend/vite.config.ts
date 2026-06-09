@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    hmr: {
+      clientPort: 80,
+    },
     proxy: {
       // 将 /api/shop/* 代理到 Nginx (:80)
       '/api/shop': {
