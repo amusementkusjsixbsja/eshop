@@ -88,13 +88,12 @@ async def _event_stream(messages: list[dict], conv_id: str, question: str):
     """SSE 流式生成器"""
     from services.conversation_service import add_message
     from services.llm_service import chat_with_llm_astream
-    from services.tools import TOOL_DEFINITIONS
 
     yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conv_id})}\n\n"
 
     full_text = ""
     try:
-        async for token in chat_with_llm_astream(messages, tools=TOOL_DEFINITIONS):
+        async for token in chat_with_llm_astream(messages):
             if token:
                 full_text += token
                 yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"

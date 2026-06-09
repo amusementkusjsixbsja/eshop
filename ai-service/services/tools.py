@@ -72,13 +72,21 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "search_products",
-            "description": "搜索商品，根据关键词查找商品列表",
+            "description": "搜索商品，根据关键词和价格区间查找商品列表。当用户询问价格范围时，请使用 min_price 和 max_price 参数；如需列出全部商品，keyword 传空字符串即可",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "keyword": {
                         "type": "string",
-                        "description": "搜索关键词",
+                        "description": "搜索关键词（模糊匹配商品名称和描述，需要搜索全部商品时传空字符串）",
+                    },
+                    "min_price": {
+                        "type": "number",
+                        "description": "最低价格（可选，筛选价格 ≥ 此值的商品，如 100）",
+                    },
+                    "max_price": {
+                        "type": "number",
+                        "description": "最高价格（可选，筛选价格 ≤ 此值的商品，如 500）",
                     },
                 },
                 "required": ["keyword"],

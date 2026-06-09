@@ -30,7 +30,7 @@ class ShopInternalClient:
             return self._mock_orders(user_id)
         return self._get(ORDER_INTERNAL_URL, "/orders", {"user_id": user_id, "page": page, "size": size})
 
-    def get_order_detail(self, order_id: int) -> dict:
+    def get_order_detail(self, order_id: int, user_id: int = None) -> dict:
         if self.mock_mode:
             return {"code": 0, "data": {"id": order_id, "user_id": 1, "total_amount": 1798.00, "status": "paid",
                 "address": "广东省深圳市南山区", "created_at": "2026-06-01T10:00:00",
@@ -78,8 +78,13 @@ class ShopInternalClient:
 
     # ─── 商品（user-product）───
 
-    def search_products(self, keyword: str, page: int = 1, size: int = 20) -> dict:
-        return self._get(USER_INTERNAL_URL, "/products/search", {"keyword": keyword, "page": page, "size": size})
+    def search_products(self, keyword: str, page: int = 1, size: int = 20, user_id: int = None, min_price: float = None, max_price: float = None) -> dict:
+        params = {"keyword": keyword, "page": page, "size": size}
+        if min_price is not None:
+            params["min_price"] = min_price
+        if max_price is not None:
+            params["max_price"] = max_price
+        return self._get(USER_INTERNAL_URL, "/products/search", params)
 
     def get_product(self, product_id: int) -> dict:
         return self._get(USER_INTERNAL_URL, f"/products/{product_id}")
