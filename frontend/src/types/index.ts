@@ -83,6 +83,7 @@ export interface OrderItem {
 
 export interface Order {
   id: number
+  user_id?: number
   total_amount: number
   status: OrderStatus
   address: string
@@ -136,5 +137,6 @@ export interface ChatRequest {
 
 export interface ChatResponse {
   answer: string
+  conversation_id?: string | null
   data?: any
 }

@@ -13,25 +13,31 @@ from fastapi import APIRouter, Depends, Query
 
 from shop_shared.common import paginated_response, success_response
 from shop_shared.middleware import get_current_admin
+from services.order_service import list_all_orders as svc_list_all_orders
+from services.order_service import get_order_detail as svc_get_order_detail
 
 router = APIRouter(prefix="/orders", tags=["订单查看"])
 
 
 @router.get("")
-def list_all_orders(
+def list_orders(
     status: str = Query(None, regex="^(pending|paid|cancelled)?$"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     admin: dict = Depends(get_current_admin),
 ):
     """查看全部订单（按时间倒序，可按状态筛选）。"""
-    # TODO: 小D — SELECT * FROM shop.orders ORDER BY created_at DESC
-    return paginated_response([], 0, page, size)
+    result = svc_list_all_orders(status=status, page=page, size=size)
+    return paginated_response(
+        items=result["items"],
+        total=result["total"],
+        page=result["page"],
+        size=result["size"],
+    )
 
 
 @router.get("/{order_id}")
-def get_order_detail(order_id: int, admin: dict = Depends(get_current_admin)):
+def order_detail(order_id: int, admin: dict = Depends(get_current_admin)):
     """订单详情（含明细）。"""
-    # TODO: 小D — SELECT ... JOIN shop.order_items WHERE id = %s
-    from shop_shared.common.exceptions import NotFoundError
-    raise NotFoundError("订单不存在")
+    order = svc_get_order_detail(order_id)
+    return success_response(order)

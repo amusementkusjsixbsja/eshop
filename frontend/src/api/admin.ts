@@ -33,6 +33,10 @@ export async function adminUpdateProduct(id: number, data: Partial<{ name: strin
   return client.put<any, ApiResponse<{ id: number }>>(`/b-endpoint/products/${id}`, data)
 }
 
+export async function adminDeleteProduct(id: number) {
+  return client.delete<any, ApiResponse<{ message: string }>>(`/b-endpoint/products/${id}`)
+}
+
 export async function adminToggleProductStatus(id: number, status: 'on_sale' | 'off_sale') {
   return client.patch<any, ApiResponse<{ id: number; status: string }>>(`/b-endpoint/products/${id}/status`, { status })
 }

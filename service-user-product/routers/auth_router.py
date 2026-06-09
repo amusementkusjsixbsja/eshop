@@ -1,4 +1,4 @@
-"""★ 小B：认证路由 — 将此文件的 mock 数据替换为真实数据库查询。
+"""★ 小B：认证路由 — 用户注册/登录/JWT/个人信息
 
 接口说明（对照需求文档第五章、第六章）：
   - POST /auth/register — 注册：邮箱唯一，密码 bcrypt 加密 ≥6 位
@@ -11,7 +11,18 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, field_validator
 
 from shop_shared.common import success_response
+from shop_shared.common.exceptions import AuthenticationError, BusinessError
 from shop_shared.middleware import get_current_user
+
+from services.user_service import (
+    create_user,
+    get_user_by_email,
+    get_user_by_id,
+    update_user_address,
+    check_email_exists,
+    verify_password,
+    generate_jwt,
+)
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -54,38 +65,46 @@ class AddressRequest(BaseModel):
         return v.strip()
 
 
-# ─── 路由（Stub 版本，返回 mock 数据）───
+# ─── 路由 ───
 
 @router.post("/register")
 def register(body: RegisterRequest):
     """用户注册。"""
-    # TODO: 小B — 替换为真实注册逻辑
-    # 1. 校验邮箱唯一性 (SELECT email FROM shop.users WHERE email = %s)
-    # 2. bcrypt 加密密码 (bcrypt.hashpw(password.encode(), bcrypt.gensalt()))
-    # 3. INSERT INTO shop.users (email, password, nickname) RETURNING id
-    # 4. 返回成功
+    if check_email_exists(body.email):
+        raise BusinessError("该邮箱已被注册")
+    
+    user = create_user(body.email, body.password, body.nickname)
+    
+    if not user:
+        raise BusinessError("注册失败")
+    
     return success_response({
-        "id": 1,
-        "email": body.email,
-        "nickname": body.nickname,
+        "id": user["id"],
+        "email": user["email"],
+        "nickname": user["nickname"],
     })
 
 
 @router.post("/login")
 def login(body: LoginRequest):
     """用户登录，返回 JWT Token。"""
-    # TODO: 小B — 替换为真实登录逻辑
-    # 1. SELECT * FROM shop.users WHERE email = %s → 查不到则 raise AuthenticationError
-    # 2. bcrypt.checkpw(password.encode(), row["password"].encode()) → 不匹配则 raise
-    # 3. jwt.encode({user_id, email, role, exp}, JWT_SECRET, algorithm="HS256")
-    # 4. 返回 token + user 信息
+    user = get_user_by_email(body.email)
+    
+    if not user:
+        raise AuthenticationError("邮箱或密码错误")
+    
+    if not verify_password(body.password, user["password"]):
+        raise AuthenticationError("邮箱或密码错误")
+    
+    token = generate_jwt(user["id"], user["email"], user["role"])
+    
     return success_response({
-        "token": "mock-jwt-token-please-replace",
+        "token": token,
         "user": {
-            "id": 1,
-            "email": body.email,
-            "nickname": "测试用户",
-            "role": "user",
+            "id": user["id"],
+            "email": user["email"],
+            "nickname": user["nickname"],
+            "role": user["role"],
         },
     })
 
@@ -93,23 +112,23 @@ def login(body: LoginRequest):
 @router.get("/me")
 def get_profile(user: dict = Depends(get_current_user)):
     """获取当前登录用户信息。"""
-    # TODO: 小B — 替换为真实查询
-    # SELECT id, email, nickname, role, address FROM shop.users WHERE id = %s
-    return success_response({
-        "id": user["user_id"],
-        "email": user["email"],
-        "nickname": "测试用户",
-        "role": user["role"],
-        "address": "广东省深圳市南山区",
-    })
+    user_data = get_user_by_id(user["user_id"])
+    
+    if not user_data:
+        raise AuthenticationError("用户不存在")
+    
+    return success_response(user_data)
 
 
 @router.put("/address")
 def update_address(body: AddressRequest, user: dict = Depends(get_current_user)):
     """更新收货地址。"""
-    # TODO: 小B — 替换为真实更新逻辑
-    # UPDATE shop.users SET address = %s, updated_at = NOW() WHERE id = %s
+    result = update_user_address(user["user_id"], body.address)
+    
+    if not result:
+        raise AuthenticationError("用户不存在")
+    
     return success_response({
-        "id": user["user_id"],
-        "address": body.address,
+        "id": result["id"],
+        "address": result["address"],
     })

@@ -1,0 +1,42 @@
+                                          Table "shop.cart_items"
+   Column   |           Type           | Collation | Nullable |                   Default                
+
+------------+--------------------------+-----------+----------+---------------------------------------------
+ id         | integer                  |           | not null | nextval('shop.cart_items_id_seq'::regclass)
+ user_id    | integer                  |           | not null |
+ product_id | integer                  |           | not null |
+ quantity   | integer                  |           | not null | 1
+ created_at | timestamp with time zone |           |          | now()
+Indexes:
+    "cart_items_pkey" PRIMARY KEY, btree (id)
+    "cart_items_user_id_product_id_key" UNIQUE CONSTRAINT, btree (user_id, product_id)
+Check constraints:
+    "cart_items_quantity_check" CHECK (quantity > 0)
+Foreign-key constraints:
+    "cart_items_product_id_fkey" FOREIGN KEY (product_id) REFERENCES shop.products(id)
+    "cart_items_user_id_fkey" FOREIGN KEY (user_id) REFERENCES shop.users(id)
+
+
+                                           Table "shop.orders"
+    Column    |           Type           | Collation | Nullable |                 Default                 
+--------------+--------------------------+-----------+----------+-----------------------------------------
+ id           | integer                  |           | not null | nextval('shop.orders_id_seq'::regclass)
+ user_id      | integer                  |           | not null | 
+ total_amount | numeric(10,2)            |           | not null | 
+ status       | character varying(20)    |           |          | 'pending'::character varying
+ address      | text                     |           | not null |
+ created_at   | timestamp with time zone |           |          | now()
+ paid_at      | timestamp with time zone |           |          |
+ cancelled_at | timestamp with time zone |           |          |
+Indexes:
+    "orders_pkey" PRIMARY KEY, btree (id)
+    "idx_orders_pending_time" btree (created_at) WHERE status::text = 'pending'::text
+    "idx_orders_status" btree (status)
+    "idx_orders_user" btree (user_id)
+Foreign-key constraints:
+    "orders_user_id_fkey" FOREIGN KEY (user_id) REFERENCES shop.users(id)
+Referenced by:
+    TABLE "shop.after_sale_requests" CONSTRAINT "after_sale_requests_order_id_fkey" FOREIGN KEY (order_id) REFERENCES shop.orders(id)
+    TABLE "shop.logistics_records" CONSTRAINT "logistics_records_order_id_fkey" FOREIGN KEY (order_id) REFERENCES shop.orders(id)
+    TABLE "shop.order_items" CONSTRAINT "order_items_order_id_fkey" FOREIGN KEY (order_id) REFERENCES shop.orders(id)
+    TABLE "shop.payment_records" CONSTRAINT "payment_records_order_id_fkey" FOREIGN KEY (order_id) REFERENCES shop.orders(id)

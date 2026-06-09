@@ -124,7 +124,9 @@ services:
     environment:
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-dev-internal-token}
-      - SHOP_INTERNAL_URL=http://user-product:8001/internal
+      - USER_INTERNAL_URL=http://user-product:8001/internal
+      - ORDER_INTERNAL_URL=http://order-trade:8002/internal
+      - MOCK_MODE=false
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       postgres:

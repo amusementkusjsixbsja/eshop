@@ -15,6 +15,7 @@ from pydantic import BaseModel, field_validator
 
 from shop_shared.common import success_response
 from shop_shared.middleware import get_current_user
+from services.after_sale_service import create_after_sale, get_user_after_sales
 
 router = APIRouter(prefix="/after-sales", tags=["售后"])
 
@@ -32,31 +33,17 @@ class AfterSaleRequest(BaseModel):
         return v
 
 
-MOCK_AFTER_SALES = [
-    {
-        "id": 1, "order_id": 1001, "user_id": 1,
-        "type": "refund", "reason": "商品质量问题",
-        "status": "approved", "created_at": "2026-06-01T10:30:00",
-    },
-]
-
-
 @router.post("")
-def create_after_sale(body: AfterSaleRequest, user: dict = Depends(get_current_user)):
-    """申请售后。"""
-    # TODO: 小C — INSERT INTO shop.after_sale_requests (user_id, order_id, type, reason)
-    # 前置条件：校验订单状态为 paid
-    return success_response({
-        "id": 2,
-        "status": "pending",
-    })
+def create_after_sale_handler(body: AfterSaleRequest, user: dict = Depends(get_current_user)):
+    """申请售后（仅 paid 订单可申请）。"""
+    uid = user["user_id"]
+    result = create_after_sale(uid, body.order_id, body.type, body.reason)
+    return success_response(result)
 
 
 @router.get("")
-def list_after_sales(user: dict = Depends(get_current_user)):
+def list_after_sales_handler(user: dict = Depends(get_current_user)):
     """查询本人的售后申请列表。"""
     uid = user["user_id"]
-    # TODO: 小C — SELECT * FROM shop.after_sale_requests WHERE user_id = %s ORDER BY created_at DESC
-    return success_response({
-        "items": [a for a in MOCK_AFTER_SALES if a["user_id"] == uid],
-    })
+    items = get_user_after_sales(uid)
+    return success_response({"items": items})

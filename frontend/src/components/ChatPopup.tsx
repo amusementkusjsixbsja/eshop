@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { chat } from '../api/aiChat'
+import { chatStream } from '../api/aiChat'
+import Markdown from 'react-markdown'
+import './ChatPopup.css'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -14,12 +16,22 @@ export default function ChatPopup({ user }: { user: any }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+  const convIdRef = useRef<string | null>(null)
+
+  // ⚠ 临时：未登录时构造虚拟用户，方便前端调测 AI 接口
+  const _user = user || { id: 1, name: '测试用户' }
 
   useEffect(() => { endRef.current?.scrollIntoView() }, [messages])
 
+  /** 判断是否处于"等待首个 token"的阶段（工具调用中） */
+  const isWaitingFirstToken = loading && (
+    messages.length === 0 ||
+    messages[messages.length - 1].role !== 'assistant' ||
+    messages[messages.length - 1].content === ''
+  )
+
   const handleSend = async () => {
     if (!input.trim() || loading) return
-    if (!user) { alert('请先登录后再咨询 AI 客服'); return }
 
     const question = input.trim()
     setInput('')
@@ -27,10 +39,40 @@ export default function ChatPopup({ user }: { user: any }) {
     setLoading(true)
 
     try {
-      const res = await chat(question)
-      setMessages(prev => [...prev, { role: 'assistant', content: res.answer }])
+      // 先插入空占位消息，流式 token 到达后逐字追加
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+
+      await chatStream(
+        question,
+        convIdRef.current || undefined,
+        // onToken: 追加到最后一个 assistant 消息
+        (token) => {
+          setMessages(prev => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, content: last.content + token }
+            }
+            return updated
+          })
+        },
+        // onMeta: 保存 conversation_id
+        (meta) => {
+          if (meta.conversation_id) convIdRef.current = meta.conversation_id
+        },
+      )
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '抱歉，服务暂时不可用，请稍后再试。' }])
+      // 流式失败：替换占位消息为错误提示
+      setMessages(prev => {
+        const updated = [...prev]
+        const last = updated[updated.length - 1]
+        if (last.role === 'assistant' && !last.content) {
+          updated[updated.length - 1] = { role: 'assistant', content: '抱歉，服务暂时不可用，请稍后再试。' }
+        } else {
+          updated.push({ role: 'assistant', content: '抱歉，服务暂时不可用，请稍后再试。' })
+        }
+        return updated
+      })
     } finally {
       setLoading(false)
     }
@@ -41,50 +83,41 @@ export default function ChatPopup({ user }: { user: any }) {
       {/* 浮窗按钮 */}
       <button
         onClick={() => setOpen(!open)}
-        style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 1000,
-          width: 56, height: 56, borderRadius: '50%', background: '#1890ff',
-          color: '#fff', border: 'none', fontSize: 24, cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        }}
+        className="chat-toggle-btn"
       >
         {open ? '✕' : '💬'}
       </button>
 
       {/* 对话面板 */}
       {open && (
-        <div style={{
-          position: 'fixed', bottom: 90, right: 24, zIndex: 1000,
-          width: 360, height: 500, background: '#fff', borderRadius: 12,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-          display: 'flex', flexDirection: 'column',
-        }}>
-          <div style={{ padding: 12, background: '#1890ff', color: '#fff', borderRadius: '12px 12px 0 0', fontWeight: 'bold' }}>
-            AI 客服助手
+        <div className="chat-panel">
+          <div className="chat-header">
+            AI
           </div>
-          <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+          <div className="chat-messages">
             {messages.map((m, i) => (
-              <div key={i} style={{ margin: '8px 0', textAlign: m.role === 'user' ? 'right' : 'left' }}>
-                <span style={{
-                  display: 'inline-block', padding: '8px 12px', borderRadius: 8, maxWidth: '80%',
-                  background: m.role === 'user' ? '#1890ff' : '#f0f0f0',
-                  color: m.role === 'user' ? '#fff' : '#333',
-                  whiteSpace: 'pre-wrap',
-                }}>{m.content}</span>
+              <div key={i} className={`chat-message-row ${m.role}`}>
+                <span className={`chat-bubble ${m.role}`}>
+                  {m.role === 'user'
+                    ? m.content
+                    : <span className="markdown-content"><Markdown>{m.content}</Markdown></span>
+                  }
+                </span>
               </div>
             ))}
-            {loading && <div style={{ color: '#999' }}>AI 正在思考...</div>}
+            {/* 仅在工具调用阶段显示加载提示 */}
+            {isWaitingFirstToken && <div className="chat-loading">AI 正在思考...</div>}
             <div ref={endRef} />
           </div>
-          <div style={{ padding: 8, borderTop: '1px solid #eee', display: 'flex' }}>
+          <div className="chat-input-bar">
             <input
               value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
-              placeholder={user ? '输入问题...' : '请先登录'}
-              disabled={!user}
-              style={{ flex: 1, padding: 8, border: '1px solid #ddd', borderRadius: 4, marginRight: 8 }}
+              placeholder={_user ? '输入问题...' : '请先登录'}
+              disabled={!_user}
+              className="chat-input"
             />
-            <button onClick={handleSend} disabled={loading || !user} style={{ padding: '8px 16px', background: '#1890ff', color: '#fff', border: 'none', borderRadius: 4 }}>
+            <button onClick={handleSend} disabled={loading || !_user} className="chat-send-btn">
               发送
             </button>
           </div>
