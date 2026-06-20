@@ -56,7 +56,8 @@ def get_products(
 
         query_sql = f"""
             SELECT p.id, p.name, p.description, p.price, p.image_url,
-                   p.stock, p.category_id, c.name as category_name, p.status
+                   p.stock, p.category_id, c.name as category_name, p.status,
+                   p.avg_rating, p.review_count
             FROM shop.products p
             LEFT JOIN shop.categories c ON p.category_id = c.id
             WHERE {where_sql}
@@ -89,7 +90,8 @@ def get_product_by_id(product_id: int) -> Optional[Dict[str, Any]]:
     with get_cursor() as cur:
         cur.execute("""
             SELECT p.id, p.name, p.description, p.price, p.image_url,
-                   p.stock, p.category_id, c.name as category_name, p.status
+                   p.stock, p.category_id, c.name as category_name, p.status,
+                   p.avg_rating, p.review_count
             FROM shop.products p
             LEFT JOIN shop.categories c ON p.category_id = c.id
             WHERE p.id = %s AND p.status = 'on_sale'
@@ -122,7 +124,8 @@ def get_hot_products(limit: int = 5) -> List[Dict[str, Any]]:
     with get_cursor() as cur:
         cur.execute("""
             SELECT p.id, p.name, p.description, p.price, p.image_url,
-                   p.stock, p.category_id, c.name as category_name, p.status
+                   p.stock, p.category_id, c.name as category_name, p.status,
+                   p.avg_rating, p.review_count
             FROM shop.products p
             LEFT JOIN shop.categories c ON p.category_id = c.id
             WHERE p.status = 'on_sale'

@@ -133,6 +133,27 @@ CREATE INDEX IF NOT EXISTS idx_after_sale_order ON shop.after_sale_requests(orde
 COMMENT ON COLUMN shop.after_sale_requests.type IS 'refund/return/exchange';
 COMMENT ON COLUMN shop.after_sale_requests.status IS 'pending/approved/rejected/completed';
 
+-- 评价表
+CREATE TABLE IF NOT EXISTS shop.reviews (
+    id          SERIAL PRIMARY KEY,
+    product_id  INTEGER NOT NULL REFERENCES shop.products(id),
+    user_id     INTEGER NOT NULL REFERENCES shop.users(id),
+    order_id    INTEGER NOT NULL REFERENCES shop.orders(id),
+    rating      SMALLINT NOT NULL CHECK(rating >= 1 AND rating <= 5),
+    content     TEXT DEFAULT '',
+    status      VARCHAR(20) DEFAULT 'visible',
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, order_id, product_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_product ON shop.reviews(product_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_user ON shop.reviews(user_id);
+
+-- 商品评分字段
+ALTER TABLE shop.products ADD COLUMN IF NOT EXISTS avg_rating DECIMAL(3,2) DEFAULT 0;
+ALTER TABLE shop.products ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0;
+
 -- ============================================
 -- AI 客服 schema（customer_service）
 -- ============================================
