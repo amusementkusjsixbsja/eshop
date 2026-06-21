@@ -23,6 +23,8 @@ from services.order_service import (
     get_order_detail,
     pay_order,
     cancel_order,
+    initiate_payment,
+    get_payment_status,
 )
 
 router = APIRouter(prefix="/orders", tags=["订单"])
@@ -37,6 +39,10 @@ class CreateOrderRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError("收货地址不能为空")
         return v.strip()
+
+
+class PayOrderRequest(BaseModel):
+    payment_method: str = "mock"
 
 
 @router.post("")
@@ -69,10 +75,18 @@ def get_order_detail_handler(order_id: int, user: dict = Depends(get_current_use
 
 
 @router.post("/{order_id}/pay")
-def pay_order_handler(order_id: int, user: dict = Depends(get_current_user)):
-    """模拟支付（幂等：FOR UPDATE + 状态校验）。"""
+def pay_order_handler(order_id: int, body: PayOrderRequest, user: dict = Depends(get_current_user)):
+    """发起支付（返回 processing 状态，前端需轮询 /orders/{id}/payment 获取结果）。"""
     uid = user["user_id"]
-    result = pay_order(order_id, uid)
+    result = initiate_payment(order_id, uid, body.payment_method)
+    return success_response(result)
+
+
+@router.get("/{order_id}/payment")
+def get_payment_status_handler(order_id: int, user: dict = Depends(get_current_user)):
+    """查询支付状态（供前端轮询）。"""
+    uid = user["user_id"]
+    result = get_payment_status(order_id, uid)
     return success_response(result)
 
 
