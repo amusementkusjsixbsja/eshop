@@ -94,12 +94,56 @@ class ShopInternalClient:
     def get_user(self, user_id: int) -> dict:
         return self._get(USER_INTERNAL_URL, f"/users/{user_id}")
 
+    # ─── 对话下单（v2.0）───
+
+    def create_order(self, user_id: int, items: list, address: str) -> dict:
+        """AI 对话下单：调用 order-trade 内部下单接口。"""
+        return self._post(ORDER_INTERNAL_URL, "/orders/create", {
+            "user_id": user_id,
+            "items": items,
+            "address": address,
+        })
+
+    # ─── 支付（v2.0）───
+
+    def pay_order(self, order_id: int, user_id: int = None, payment_method: str = "wechat") -> dict:
+        """执行支付：调用 order-trade 支付端点。
+
+        user_id 由 execute_tool 自动注入，此处仅用于容忍参数（鉴权在下游）。
+        """
+        return self._post(ORDER_INTERNAL_URL, f"/orders/{order_id}/pay", {
+            "payment_method": payment_method,
+        })
+
+    # ─── 商品评价（v2.0）───
+
+    def get_product_reviews(self, product_id: int, product_name: str = None, user_id: int = None) -> dict:
+        """获取商品评价列表和统计。
+
+        product_name / user_id 为容忍参数（product_name 来自工具 schema，
+        user_id 由 execute_tool 自动注入），实际按 product_id 查询。
+        """
+        return self._get(USER_INTERNAL_URL, f"/reviews/product/{product_id}")
+
+    def get_product_review_stats(self, product_id: int, user_id: int = None) -> dict:
+        """获取商品评价统计。"""
+        return self._get(USER_INTERNAL_URL, f"/reviews/product/{product_id}/stats")
+
     # ─── 内部方法 ───
 
     def _get(self, base_url: str, path: str, params: dict = None) -> dict:
         try:
             url = f"{base_url}{path}"
             r = self._client.get(url, params=params, headers=self._headers)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            return {"code": -1, "data": {}, "message": f"电商服务不可用: {e}"}
+
+    def _post(self, base_url: str, path: str, body: dict = None) -> dict:
+        try:
+            url = f"{base_url}{path}"
+            r = self._client.post(url, json=body, headers=self._headers)
             r.raise_for_status()
             return r.json()
         except Exception as e:

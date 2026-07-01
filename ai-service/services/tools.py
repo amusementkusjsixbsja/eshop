@@ -93,6 +93,69 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    # 7. create_order — 对话下单（v2.0）
+    {
+        "type": "function",
+        "function": {
+            "name": "create_order",
+            "description": "为用户创建订单。请在多轮对话中确认商品、数量、收货地址后，经用户最终确认才能调用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "product_id": {"type": "integer", "description": "商品 ID"},
+                                "quantity": {"type": "integer", "description": "数量"},
+                            },
+                            "required": ["product_id", "quantity"],
+                        },
+                        "description": "商品列表，每项包含商品 ID 和数量",
+                    },
+                    "address": {"type": "string", "description": "收货地址完整文本"},
+                },
+                "required": ["items", "address"],
+            },
+        },
+    },
+    # 8. pay_order — 执行支付（v2.0）
+    {
+        "type": "function",
+        "function": {
+            "name": "pay_order",
+            "description": "为订单执行支付。请在用户确认支付后调用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "integer", "description": "订单 ID"},
+                    "payment_method": {
+                        "type": "string",
+                        "enum": ["wechat", "alipay", "card", "balance"],
+                        "description": "支付方式：微信/支付宝/银行卡/余额",
+                    },
+                },
+                "required": ["order_id"],
+            },
+        },
+    },
+    # 9. get_product_reviews — 获取商品评价（v2.0）
+    {
+        "type": "function",
+        "function": {
+            "name": "get_product_reviews",
+            "description": "获取某商品的用户评价和评分统计。用户询问商品口碑、质量、使用体验时调用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_id": {"type": "integer", "description": "商品 ID"},
+                    "product_name": {"type": "string", "description": "商品名称（便于AI引用）"},
+                },
+                "required": ["product_id"],
+            },
+        },
+    },
 ]
 
 # ── 工具映射（名 → 函数） ──
@@ -104,6 +167,9 @@ TOOL_MAP = {
     "get_logistics": _client.get_logistics,
     "get_after_sales": _client.get_after_sales,
     "search_products": _client.search_products,
+    "create_order": _client.create_order,
+    "pay_order": _client.pay_order,
+    "get_product_reviews": _client.get_product_reviews,
 }
 
 

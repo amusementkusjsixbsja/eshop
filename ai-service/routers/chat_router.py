@@ -20,6 +20,7 @@ from shop_shared.common.logger import get_logger
 
 from utils.auth import extract_user_from_token
 from clients.shop_client import ShopInternalClient
+from services.faq_service import search_faq
 
 logger = get_logger("chat")
 shop_client = ShopInternalClient()
@@ -106,6 +107,13 @@ async def _event_stream(messages: list[dict], conv_id: str, question: str):
     yield "data: [DONE]\n\n"
 
 
+async def _event_stream_faq(answer: str, conv_id: str):
+    """FAQ 命中的流式输出（直接返回完整答案，不经过 LLM）。"""
+    yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conv_id})}\n\n"
+    yield f"data: {json.dumps({'type': 'token', 'content': answer})}\n\n"
+    yield "data: [DONE]\n\n"
+
+
 # ── 工具函数：构建带用户上下文的消息 ──
 
 def _build_messages(question: str, conv_id: str, user_ctx: dict) -> list[dict]:
@@ -139,6 +147,13 @@ def chat(body: ChatRequest, authorization: str = Header(None)):
     from services.conversation_service import create_conversation, add_message
     conv_id = body.conversation_id or create_conversation(user_id)
 
+    # FAQ 优先检索：命中（相似度≥阈值）则直接返回，跳过 LLM
+    faq_answer = search_faq(body.question)
+    if faq_answer:
+        add_message(conv_id, "user", body.question)
+        add_message(conv_id, "assistant", faq_answer)
+        return ChatResponse(answer=faq_answer, conversation_id=conv_id)
+
     messages = _build_messages(body.question, conv_id, user_ctx)
     final_answer = _resolve_tool_calls(messages, user_id=user_id)
 
@@ -158,8 +173,23 @@ async def chat_stream(body: ChatRequest, authorization: str = Header(None)):
         return ChatResponse(answer="请先登录后再使用AI客服。", conversation_id=None)
     user_id = user_ctx["user_id"]
 
-    from services.conversation_service import create_conversation
+    from services.conversation_service import create_conversation, add_message
     conv_id = body.conversation_id or create_conversation(user_id)
+
+    # FAQ 优先检索：命中则直接流式返回预置答案，跳过 LLM
+    faq_answer = search_faq(body.question)
+    if faq_answer:
+        add_message(conv_id, "user", body.question)
+        add_message(conv_id, "assistant", faq_answer)
+        return StreamingResponse(
+            _event_stream_faq(faq_answer, conv_id),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     messages = _build_messages(body.question, conv_id, user_ctx)
 

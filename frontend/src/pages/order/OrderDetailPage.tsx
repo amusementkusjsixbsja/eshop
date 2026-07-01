@@ -1,16 +1,39 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getOrderDetail, payOrder, cancelOrder } from '../../api/order'
-import type { Order } from '../../types'
+import { getOrderDetail, payOrder, cancelOrder, getPaymentStatus } from '../../api/order'
+import { createReview } from '../../api/review'
+import ReviewForm from '../../components/ReviewForm'
+import type { Order, OrderItem, PaymentMethod } from '../../types'
 
 const statusMap: Record<string, string> = { pending: '待支付', paid: '已支付', cancelled: '已取消' }
 const statusBadge: Record<string, string> = { pending: 'badge-warning', paid: 'badge-success', cancelled: 'badge-gray' }
+
+const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
+  { key: 'wechat', label: '微信支付', icon: '💚' },
+  { key: 'alipay', label: '支付宝', icon: '💙' },
+  { key: 'card', label: '银行卡', icon: '💳' },
+  { key: 'balance', label: '余额支付', icon: '💰' },
+]
 
 export default function OrderDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // ── 支付（v2.0） ──
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wechat')
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle')
+
+  // ── 评价（v2.0） ──
+  const [reviewItem, setReviewItem] = useState<OrderItem | null>(null)
+
+  const fetchOrder = async () => {
+    if (!id) return
+    const detail = await getOrderDetail(Number(id))
+    if (detail.code === 0) setOrder(detail.data)
+  }
 
   useEffect(() => {
     if (id) {
@@ -22,16 +45,38 @@ export default function OrderDetailPage() {
     }
   }, [id])
 
-  const handlePay = async () => {
+  const handlePaySubmit = async () => {
     if (!id) return
-    const res = await payOrder(Number(id))
-    if (res.code === 0) {
-      // 重新获取完整订单信息（pay_order 返回最小数据）
-      const detail = await getOrderDetail(Number(id))
-      if (detail.code === 0) setOrder(detail.data)
-    } else {
-      alert(res.message)
+    setShowPaymentModal(false)
+    setPaymentStatus('processing')
+    try {
+      const res = await payOrder(Number(id), paymentMethod)
+      if (res.code !== 0) {
+        setPaymentStatus('failed')
+        alert(res.message)
+        return
+      }
+      // 轮询支付状态（每 1s，10s 超时）
+      const poll = setInterval(async () => {
+        const status = await getPaymentStatus(Number(id))
+        if (status.data?.status === 'success') {
+          clearInterval(poll)
+          setPaymentStatus('success')
+          fetchOrder()
+        } else if (status.data?.status === 'failed') {
+          clearInterval(poll)
+          setPaymentStatus('failed')
+        }
+      }, 1000)
+      setTimeout(() => clearInterval(poll), 10000)
+    } catch {
+      setPaymentStatus('failed')
     }
+  }
+
+  const handleReviewSubmit = async (data: { product_id: number; order_id: number; rating: number; content: string }) => {
+    const res = await createReview(data)
+    if (res.code !== 0) throw new Error(res.message)
   }
 
   const handleCancel = async () => {
@@ -117,6 +162,15 @@ export default function OrderDetailPage() {
               <div className="text-sm text-muted" style={{ marginTop: 2 }}>
                 小计: <span className="font-semibold">¥{(item.price * item.quantity).toFixed(2)}</span>
               </div>
+              {order.status === 'paid' && (
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ marginTop: 8 }}
+                  onClick={() => setReviewItem(item)}
+                >
+                  去评价
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -128,11 +182,25 @@ export default function OrderDetailPage() {
         <span className="product-card-price" style={{ fontSize: '1.5rem' }}>¥{order.total_amount}</span>
       </div>
 
+      {/* 支付状态提示 */}
+      {paymentStatus === 'processing' && (
+        <div className="card card-sm" style={{ marginTop: '1rem', textAlign: 'center' }}>
+          <div className="loading-dots"><span /><span /><span /></div>
+          <p className="text-sm text-muted" style={{ marginTop: 8 }}>支付处理中，请稍候...</p>
+        </div>
+      )}
+      {paymentStatus === 'failed' && (
+        <div className="card card-sm" style={{ marginTop: '1rem', textAlign: 'center' }}>
+          <p style={{ color: 'var(--rs-500, #ef4444)', marginBottom: 8 }}>❌ 支付失败</p>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowPaymentModal(true)}>重新支付</button>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="btn-group" style={{ marginTop: '1.5rem' }}>
-        {order.status === 'pending' && (
+        {order.status === 'pending' && paymentStatus !== 'processing' && (
           <>
-            <button className="btn btn-primary btn-lg" onClick={handlePay}>立即支付</button>
+            <button className="btn btn-primary btn-lg" onClick={() => setShowPaymentModal(true)}>立即支付</button>
             <button className="btn btn-outline btn-lg" onClick={handleCancel}>取消订单</button>
           </>
         )}
@@ -147,6 +215,53 @@ export default function OrderDetailPage() {
           </>
         )}
       </div>
+
+      {/* 支付方式选择弹窗 */}
+      {showPaymentModal && (
+        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: 360 }}>
+            <h3 style={{ marginTop: 0 }}>选择支付方式</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '16px 0' }}>
+              {PAYMENT_METHODS.map(m => (
+                <button
+                  key={m.key}
+                  onClick={() => setPaymentMethod(m.key)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                    borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                    border: paymentMethod === m.key ? '2px solid #3b82f6' : '1px solid #d1d5db',
+                    background: paymentMethod === m.key ? '#eff6ff' : '#fff',
+                  }}
+                >
+                  <span style={{ fontSize: 20 }}>{m.icon}</span>
+                  <span>{m.label}</span>
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowPaymentModal(false)}>取消</button>
+              <button className="btn btn-primary btn-sm" onClick={handlePaySubmit}>确认支付 ¥{order.total_amount}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 评价弹窗 */}
+      {reviewItem && (
+        <div className="modal-overlay" onClick={() => setReviewItem(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: 420, padding: 0 }}>
+            <ReviewForm
+              productId={reviewItem.product_id}
+              orderId={order.id}
+              productName={reviewItem.product_name}
+              onSubmit={handleReviewSubmit}
+              onClose={() => setReviewItem(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -202,3 +202,51 @@
     right: 16px;
   }
 }
+
+/* ── v2.0：订单卡片 / 支付按钮 / 评价总结 ── */
+
+.order-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0 0;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  background: #f9fafb;
+}
+.order-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.payment-quick-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px 0;
+  flex-wrap: wrap;
+}
+.payment-quick-buttons button {
+  padding: 6px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+.payment-quick-buttons button:hover {
+  background: #f3f4f6;
+}
+
+.review-summary {
+  border: 1px solid #fef3c7;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0 0;
+  background: #fffbeb;
+}
+
+.payment-status {
+  padding: 8px 12px;
+  margin: 8px 0 0;
+  border-radius: 6px;
+  font-weight: 500;
+}
