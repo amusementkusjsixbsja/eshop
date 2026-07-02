@@ -7,6 +7,8 @@
   - GET /internal/after-sales        — 查询售后
 """
 
+import json
+
 from fastapi import APIRouter, Depends, Query
 
 from pydantic import BaseModel
@@ -20,7 +22,7 @@ from services.logistics_service import get_logistics_by_order
 from services.after_sale_service import get_user_after_sales
 from shop_shared.infrastructure.database import get_cursor
 
-router = APIRouter(prefix="/internal", tags=["内部接口"], dependencies=[Depends(verify_internal_token)])
+router = APIRouter(tags=["内部接口"], dependencies=[Depends(verify_internal_token)])
 
 
 class CreateOrderDirectRequest(BaseModel):
@@ -77,8 +79,14 @@ def internal_get_logistics(user_id: int = Query(..., description="用户 ID")):
             WHERE o.user_id = %s
             ORDER BY o.created_at DESC
         """, (user_id,))
-        logistics = cur.fetchall()
-        return success_response({"items": logistics})
+        rows = cur.fetchall()
+        items = []
+        for r in rows:
+            item = dict(r)
+            if isinstance(item.get("timeline"), str):
+                item["timeline"] = json.loads(item["timeline"])
+            items.append(item)
+        return success_response({"items": items})
 
 
 @router.get("/after-sales")

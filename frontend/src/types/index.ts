@@ -83,6 +83,7 @@ export interface OrderItem {
 
 export interface Order {
   id: number
+  user_id?: number
   total_amount: number
   status: OrderStatus
   address: string
@@ -136,5 +137,57 @@ export interface ChatRequest {
 
 export interface ChatResponse {
   answer: string
+  conversation_id?: string | null
   data?: any
+}
+
+// ─── 评价系统（v2.0） ───
+
+export interface Review {
+  id: number
+  product_id: number
+  user_id: number
+  nickname?: string
+  order_id: number
+  rating: number
+  content: string
+  status: 'visible' | 'hidden'
+  created_at: string
+  updated_at?: string
+}
+
+export interface ReviewStats {
+  avg_rating: number
+  total_count: number
+  distribution: { [key: number]: number }  // {1: 2, 2: 5, 3: 15, 4: 45, 5: 58}
+}
+
+// ─── 支付增强（v2.0） ───
+
+export type PaymentMethod = 'wechat' | 'alipay' | 'card' | 'balance' | 'mock'
+
+export interface PaymentRecord {
+  id: number
+  order_id: number
+  amount: number
+  method: PaymentMethod
+  status: 'processing' | 'success' | 'failed'
+  transaction_no: string
+  finished_at?: string
+  error_message?: string
+  created_at: string
+}
+
+// ─── AI 对话下单（v2.0） ───
+
+export interface OrderItemInput {
+  product_id: number
+  quantity: number
+}
+
+export interface CreateOrderResult {
+  id: number
+  total_amount: number
+  status: string
+  items?: OrderItem[]
 }
