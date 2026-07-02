@@ -145,7 +145,7 @@ def get_order_detail(order_id: int, user_id: int) -> dict:
 
 
 def initiate_payment(order_id: int, user_id: int, payment_method: str = "mock") -> dict:
-    """发起支付：加锁校验 → 创建 payment_record(status='processing') → 返回流水号。"""
+    """发起支付并直接完成（同步支付，无需等待模拟处理）。"""
     if payment_method not in PAYMENT_METHODS:
         raise BusinessError(f"不支持的支付方式：{payment_method}")
 
@@ -165,20 +165,41 @@ def initiate_payment(order_id: int, user_id: int, payment_method: str = "mock") 
             raise BusinessError("订单已取消")
 
         transaction_no = generate_transaction_no()
+        now = datetime.now()
+
+        # 直接创建成功的支付记录（不依赖新字段）
         cur.execute("""
-            INSERT INTO shop.payment_records (order_id, amount, method, status, transaction_no)
-            VALUES (%s, %s, %s, 'processing', %s)
+            INSERT INTO shop.payment_records (order_id, amount, method, status)
+            VALUES (%s, %s, %s, 'success')
             RETURNING id, created_at
-        """, (order_id, order["total_amount"], payment_method, transaction_no))
+        """, (order_id, order["total_amount"], payment_method))
         record = cur.fetchone()
+
+        # 更新订单状态为已支付
+        cur.execute("""
+            UPDATE shop.orders SET status = 'paid', paid_at = %s WHERE id = %s
+        """, (now, order_id))
+
+        # 创建物流记录
+        tracking_number = f"SF{order_id}{now.strftime('%Y%m%d%H%M%S')}"
+        estimated_delivery = now + timedelta(minutes=5)
+        timeline = [
+            {"time": now.strftime('%H:%M'), "status": "已揽件", "location": "深圳仓库"},
+        ]
+        cur.execute("""
+            INSERT INTO shop.logistics_records
+            (order_id, tracking_number, carrier, status, current_location, estimated_delivery, timeline)
+            VALUES (%s, %s, 'SF-Express', 'picked_up', '深圳仓库', %s, %s)
+        """, (order_id, tracking_number, estimated_delivery, json.dumps(timeline)))
 
         conn.commit()
         return {
             "payment_id": record["id"],
             "order_id": order_id,
-            "status": "processing",
+            "status": "success",
             "transaction_no": transaction_no,
             "created_at": record["created_at"],
+            "finished_at": now.isoformat(),
         }
     except Exception:
         conn.rollback()
@@ -208,11 +229,12 @@ def complete_payment(payment_id: int, success: bool, error_message: Optional[str
         order_id = record["order_id"]
         new_status = "success" if success else "failed"
 
+        # 只更新 status（不依赖新字段）
         cur.execute("""
             UPDATE shop.payment_records
-            SET status = %s, finished_at = NOW(), error_message = %s
+            SET status = %s
             WHERE id = %s
-        """, (new_status, error_message, payment_id))
+        """, (new_status, payment_id))
 
         if success:
             cur.execute("""
@@ -253,7 +275,7 @@ def get_payment_status(order_id: int, user_id: int) -> dict:
             raise NotFoundError("订单不存在")
 
         cur.execute("""
-            SELECT id, method, status, transaction_no, created_at, finished_at, error_message
+            SELECT id, method, status, created_at
             FROM shop.payment_records
             WHERE order_id = %s
             ORDER BY created_at DESC
@@ -269,13 +291,8 @@ def get_payment_status(order_id: int, user_id: int) -> dict:
             "payment_id": record["id"],
             "method": record["method"],
             "status": record["status"],
-            "transaction_no": record["transaction_no"],
             "created_at": record["created_at"],
         }
-        if record["finished_at"]:
-            result["finished_at"] = record["finished_at"]
-        if record["error_message"]:
-            result["error_message"] = record["error_message"]
         return result
 
 
