@@ -13,7 +13,6 @@ const PAYMENT_QUICK_OPTIONS: { method: string; label: string }[] = [
   { method: 'wechat', label: '💚 微信支付' },
   { method: 'alipay', label: '💙 支付宝' },
   { method: 'card', label: '💳 银行卡' },
-  { method: 'balance', label: '💰 余额' },
 ]
 
 /** 从 AI 文本中提取订单号（如「订单 #1024」「订单号 1024」「订单1024」） */
@@ -24,7 +23,7 @@ function extractOrderId(text: string): number | null {
 
 /** 判断 AI 文本是否在询问支付方式 */
 function asksPaymentMethod(text: string): boolean {
-  return /支付方式|选择.*(微信|支付宝|银行卡|余额)|如何支付|怎么支付/.test(text)
+  return /支付方式|选择.*(微信|支付宝|银行卡)|如何支付|怎么支付/.test(text)
 }
 
 export default function ChatPopup({ user }: { user: any }) {

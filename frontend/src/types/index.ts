@@ -164,7 +164,7 @@ export interface ReviewStats {
 
 // ─── 支付增强（v2.0） ───
 
-export type PaymentMethod = 'wechat' | 'alipay' | 'card' | 'balance' | 'mock'
+export type PaymentMethod = 'wechat' | 'alipay' | 'card' | 'mock'
 
 export interface PaymentRecord {
   id: number

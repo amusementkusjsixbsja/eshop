@@ -12,7 +12,6 @@ const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
   { key: 'wechat', label: '微信支付', icon: '💚' },
   { key: 'alipay', label: '支付宝', icon: '💙' },
   { key: 'card', label: '银行卡', icon: '💳' },
-  { key: 'balance', label: '余额支付', icon: '💰' },
 ]
 
 export default function OrderDetailPage() {

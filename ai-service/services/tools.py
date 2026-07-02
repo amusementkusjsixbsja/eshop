@@ -132,7 +132,7 @@ TOOL_DEFINITIONS = [
                     "order_id": {"type": "integer", "description": "订单 ID"},
                     "payment_method": {
                         "type": "string",
-                        "enum": ["wechat", "alipay", "card", "balance"],
+                        "enum": ["wechat", "alipay", "card"],
                         "description": "支付方式：微信/支付宝/银行卡/余额",
                     },
                 },
