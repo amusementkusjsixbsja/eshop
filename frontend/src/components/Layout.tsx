@@ -31,8 +31,7 @@ export default function Layout({ children, user, onLogout }: LayoutProps) {
       <Link to="/admin/categories" className={isActive('/admin/categories') ? 'active' : ''} onClick={() => setMenuOpen(false)}>分类管理</Link>
       <Link to="/admin/products" className={isActive('/admin/products') ? 'active' : ''} onClick={() => setMenuOpen(false)}>商品管理</Link>
       <Link to="/admin/orders" className={isActive('/admin/orders') ? 'active' : ''} onClick={() => setMenuOpen(false)}>订单管理</Link>
-      <div className="nav-divider" />
-      <Link to="/products" onClick={() => setMenuOpen(false)}>← 前台</Link>
+      <Link to="/admin/after-sales" className={isActive('/admin/after-sales') ? 'active' : ''} onClick={() => setMenuOpen(false)}>售后管理</Link>
     </>
   ) : (
     <>

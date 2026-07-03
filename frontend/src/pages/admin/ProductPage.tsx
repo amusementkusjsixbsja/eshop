@@ -126,13 +126,7 @@ export default function AdminProductPage() {
   // ─── Render ───
 
   return (
-    <div className="admin-layout">
-      <nav className="admin-sidebar">
-        <a href="/admin/categories">分类管理</a>
-        <a href="/admin/products" className="active">商品管理</a>
-        <a href="/admin/orders">订单管理</a>
-      </nav>
-      <div className="admin-content animate-in">
+    <div className="admin-content animate-in">
         <div className="page-header">
           <h1>商品管理</h1>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -196,7 +190,6 @@ export default function AdminProductPage() {
             </table>
           </div>
         )}
-      </div>
 
       {/* ─── Modal ─── */}
       {showModal && (
@@ -248,40 +241,6 @@ export default function AdminProductPage() {
           </div>
         </div>
       )}
-
-      {/* ─── Modal Styles (inline, scoped) ─── */}
-      <style>{`
-        .modal-overlay {
-          position: fixed; inset: 0; z-index: 1000;
-          background: rgba(0,0,0,0.4);
-          display: flex; align-items: center; justify-content: center;
-          animation: fadeIn 0.15s ease;
-        }
-        .modal {
-          background: #fff; border-radius: 12px;
-          width: 90%; max-width: 520px; max-height: 90vh; overflow-y: auto;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-          animation: scaleIn 0.2s ease;
-        }
-        .modal-header {
-          display: flex; justify-content: space-between; align-items: center;
-          padding: 1.25rem 1.5rem 0;
-        }
-        .modal-header h2 { margin: 0; font-size: 1.125rem; }
-        .modal-close {
-          background: none; border: none; font-size: 1.5rem; cursor: pointer;
-          color: var(--color-text-secondary); line-height: 1; padding: 0 0.25rem;
-        }
-        .modal-close:hover { color: var(--color-text); }
-        .modal-body { padding: 1rem 1.5rem; }
-        .modal-footer {
-          display: flex; justify-content: flex-end; gap: 0.5rem;
-          padding: 0 1.5rem 1.25rem;
-        }
-        .text-danger { color: #e53e3e; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-      `}</style>
     </div>
   )
 }

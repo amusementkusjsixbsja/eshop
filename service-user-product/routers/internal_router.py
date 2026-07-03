@@ -55,13 +55,24 @@ def get_product_reviews_internal(
     product_id: int,
     limit: int = Query(10, ge=1, le=50),
 ):
-    """内部接口：商品最新评价（供AI服务调用）。"""
+    """内部接口：商品最新评价 + 统计（供 AI 服务调用）。
+
+    返回结构统一为:
+    {
+      "code": 0,
+      "data": {
+        "reviews": [ {id, user_id, nickname, rating, content, created_at}, ... ],
+        "stats": { avg_rating, total_count, distribution: {1:.., 5:..} }
+      }
+    }
+    """
     reviews = get_latest_reviews(product_id, limit)
-    return success_response(reviews)
+    stats = get_review_stats(product_id)
+    return success_response({"reviews": reviews, "stats": stats})
 
 
 @router.get("/reviews/product/{product_id}/stats")
 def get_product_review_stats_internal(product_id: int):
-    """内部接口：评价统计（供AI服务调用）。"""
+    """内部接口：仅评价统计（供 AI 服务单独调用）。"""
     stats = get_review_stats(product_id)
     return success_response(stats)

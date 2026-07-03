@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import Layout from './components/Layout'
 import ChatPopup from './components/ChatPopup'
@@ -17,6 +17,7 @@ import AddressPage from './pages/address/AddressPage'
 import AdminCategoryPage from './pages/admin/CategoryPage'
 import AdminProductPage from './pages/admin/ProductPage'
 import AdminOrderPage from './pages/admin/OrderPage'
+import AdminAfterSalePage from './pages/admin/AfterSalePage'
 
 function App() {
   const [user, setUser] = useState<{ id: number; email: string; role: string } | null>(null)
@@ -58,16 +59,25 @@ function App() {
         <Route path="/admin/categories" element={<RequireAdmin><Layout><AdminCategoryPage /></Layout></RequireAdmin>} />
         <Route path="/admin/products" element={<RequireAdmin><Layout><AdminProductPage /></Layout></RequireAdmin>} />
         <Route path="/admin/orders" element={<RequireAdmin><Layout><AdminOrderPage /></Layout></RequireAdmin>} />
+        <Route path="/admin/after-sales" element={<RequireAdmin><Layout><AdminAfterSalePage /></Layout></RequireAdmin>} />
 
         {/* 默认跳转 */}
         <Route path="/" element={<Navigate to="/products" replace />} />
         <Route path="*" element={<Navigate to="/products" replace />} />
       </Routes>
 
-      {/* AI 客服浮窗 */}
-      <ChatPopup user={user} />
+      {/* AI 客服浮窗 — 仅非管理员页面展示 */}
+      <ConditionalChatPopup user={user} />
     </BrowserRouter>
   )
+}
+
+// ─── AI 客服浮窗（管理端不展示） ───
+
+function ConditionalChatPopup({ user }: { user: any }) {
+  const location = useLocation()
+  if (location.pathname.startsWith('/admin')) return null
+  return <ChatPopup user={user} />
 }
 
 // ─── 路由守卫组件 ───

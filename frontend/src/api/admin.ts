@@ -50,3 +50,28 @@ export async function adminListOrders(params?: { status?: string; page?: number;
 export async function adminGetOrderDetail(id: number) {
   return client.get<any, ApiResponse<Order>>(`/b-endpoint/orders/${id}`)
 }
+
+// ─── 售后管理 ───
+
+export interface AfterSaleItem {
+  id: number
+  user_id: number
+  order_id: number
+  type: 'refund' | 'return'
+  reason: string
+  status: 'pending' | 'approved' | 'rejected' | 'completed'
+  created_at: string
+  updated_at: string
+}
+
+export async function adminListAfterSales(params?: { status?: string; page?: number; size?: number }) {
+  return client.get<any, ApiResponse<PaginatedData<AfterSaleItem>>>('/b-endpoint/after-sales', { params })
+}
+
+export async function adminApproveAfterSale(id: number) {
+  return client.patch<any, ApiResponse<{ id: number; status: string }>>(`/b-endpoint/after-sales/${id}/approve`)
+}
+
+export async function adminRejectAfterSale(id: number) {
+  return client.patch<any, ApiResponse<{ id: number; status: string }>>(`/b-endpoint/after-sales/${id}/reject`)
+}

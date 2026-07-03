@@ -240,10 +240,12 @@ def seed_review_data(dry_run: bool = False):
         cur.execute("SELECT user_id, product_id FROM shop.reviews")
         existing_reviews = {(r["user_id"], r["product_id"]) for r in cur.fetchall()}
 
-        # Step 4: 生成评价数据
-        print("\n📝 Step 2: 生成商品评价数据...")
+        # Step 4: 为每个 (user, product) 创建真实订单 + 支付，再写入评价
+        # reviews 表有 FK order_id → shop.orders(id)，不能用占位 0
+        print("\n📝 Step 2: 生成商品评价数据（每个评价关联真实订单）...")
         total_inserted = 0
         total_skipped = 0
+        total_orders = 0
 
         for product_id in PRODUCT_IDS:
             if product_id not in REVIEW_TEMPLATES:
@@ -259,7 +261,7 @@ def seed_review_data(dry_run: bool = False):
                 user_email = SEED_USERS[i % len(SEED_USERS)]["email"]
                 user_id = user_ids[user_email]
 
-                # 检查是否已存在
+                # 检查是否已存在（UNIQUE(user_id, order_id, product_id) 前先做应用层检查）
                 if (user_id, product_id) in existing_reviews:
                     total_skipped += 1
                     continue
@@ -272,6 +274,26 @@ def seed_review_data(dry_run: bool = False):
                     continue
 
                 try:
+                    # 4a. 为该用户+商品创建订单（pending）
+                    cur.execute(
+                        """INSERT INTO shop.orders (user_id, total_amount, status, address, created_at)
+                           VALUES (%s, (SELECT price FROM shop.products WHERE id = %s), 'pending',
+                               '评价测试地址（自动创建）', %s)
+                           RETURNING id""",
+                        (user_id, product_id, created_at),
+                    )
+                    order_id = cur.fetchone()["id"]
+                    total_orders += 1
+
+                    # 4b. 插入订单明细（含 product_name，该列 NOT NULL）
+                    cur.execute(
+                        """INSERT INTO shop.order_items (order_id, product_id, product_name, quantity, price)
+                           VALUES (%s, %s, (SELECT name FROM shop.products WHERE id = %s), 1,
+                                   (SELECT price FROM shop.products WHERE id = %s))""",
+                        (order_id, product_id, product_id, product_id),
+                    )
+
+                    # 4c. 写入评价（关联到刚创建的 order_id）
                     cur.execute(
                         """INSERT INTO shop.reviews
                            (product_id, user_id, order_id, rating, content, status, created_at, updated_at)
@@ -279,7 +301,7 @@ def seed_review_data(dry_run: bool = False):
                         (
                             product_id,
                             user_id,
-                            0,  # 占位 order_id，实际从已有订单关联更佳
+                            order_id,
                             rating,
                             content,
                             created_at,
@@ -315,7 +337,8 @@ def seed_review_data(dry_run: bool = False):
         print(f"  评价种子数据生成完成")
         print(f"  {'📋 [DRY RUN] ' if dry_run else ''}")
         print(f"  计划总数: {total_expected} 条")
-        print(f"  新增: {total_inserted} 条")
+        print(f"  新增订单: {total_orders} 条")
+        print(f"  新增评价: {total_inserted} 条")
         print(f"  跳过（已存在）: {total_skipped} 条")
         print(f"{'='*50}")
 

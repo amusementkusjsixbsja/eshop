@@ -23,13 +23,7 @@ export default function AdminOrderPage() {
   }
 
   return (
-    <div className="admin-layout">
-      <nav className="admin-sidebar">
-        <a href="/admin/categories">分类管理</a>
-        <a href="/admin/products">商品管理</a>
-        <a href="/admin/orders" className="active">订单管理</a>
-      </nav>
-      <div className="admin-content animate-in">
+    <div className="admin-content animate-in">
         <div className="page-header">
           <h1>订单管理</h1>
         </div>
@@ -94,7 +88,6 @@ export default function AdminOrderPage() {
             </table>
           </div>
         )}
-      </div>
     </div>
   )
 }

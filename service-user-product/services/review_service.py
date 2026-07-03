@@ -87,7 +87,7 @@ def get_product_reviews(product_id: int, page: int = 1, size: int = 10) -> tuple
         total = cur.fetchone()["total"]
 
         cur.execute("""
-            SELECT r.id, r.user_id, u.nickname as user_nickname,
+            SELECT r.id, r.user_id, u.nickname,
                    r.rating, r.content, r.created_at
             FROM shop.reviews r
             JOIN shop.users u ON r.user_id = u.id
@@ -184,11 +184,12 @@ def update_product_rating_cache(product_id: int) -> None:
 
 
 def get_latest_reviews(product_id: int, limit: int = 10) -> List[Dict]:
-    """获取商品最新评价（供AI服务调用）。"""
+    """获取商品最新评价（供 AI 服务调用），附带用户昵称。"""
     with get_cursor() as cur:
         cur.execute("""
-            SELECT r.rating, r.content, r.created_at
+            SELECT r.id, r.user_id, u.nickname, r.rating, r.content, r.created_at
             FROM shop.reviews r
+            JOIN shop.users u ON r.user_id = u.id
             WHERE r.product_id = %s AND r.status = 'visible'
             ORDER BY r.created_at DESC
             LIMIT %s

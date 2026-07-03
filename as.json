@@ -1,0 +1,1 @@
+{"code":0,"data":{"items":[{"id":1,"user_id":2,"order_id":96,"type":"refund","reason":"","status":"pending","created_at":"2026-07-03T06:17:22.109011+00:00","updated_at":"2026-07-03T06:17:22.109011+00:00"}],"total":1,"page":1,"size":20},"message":"success"}

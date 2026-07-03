@@ -51,12 +51,14 @@ from routers.product_router import router as product_router
 from routers.order_router import router as order_router
 from routers.review_router import router as review_router
 from routers.faq_router import router as faq_router
+from routers.after_sale_router import router as after_sale_router
 
 app.include_router(category_router, prefix="/b-endpoint")
 app.include_router(product_router, prefix="/b-endpoint")
 app.include_router(order_router, prefix="/b-endpoint")
 app.include_router(review_router, prefix="/b-endpoint")
 app.include_router(faq_router, prefix="/b-endpoint")
+app.include_router(after_sale_router, prefix="/b-endpoint")
 
 
 @app.get("/health")

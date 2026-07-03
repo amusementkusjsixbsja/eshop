@@ -104,7 +104,7 @@ body {
   font-size: 15px;
   line-height: 1.6;
   color: var(--color-text);
-  background: var(--color-bg);
+  background: var(--color-surface);
   min-height: 100vh;
 }
 
@@ -415,6 +415,7 @@ select.input {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition);
 }
 
@@ -570,7 +571,7 @@ table tbody tr:hover {
   text-align: center;
   color: var(--color-text-secondary);
 }
--state-icon { font-size: 2.5rem; margin-bottom: var(--space-md); }
+.state-icon { font-size: 2.5rem; margin-bottom: var(--space-md); }
 .state-title { font-size: 1.1rem; font-weight: 600; color: var(--gray-700); margin-bottom: var(--space-sm); }
 .state-desc { font-size: 0.9rem; max-width: 320px; margin-bottom: var(--space-lg); line-height: 1.5; }
 
@@ -860,37 +861,45 @@ table tbody tr:hover {
 ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
 /* ─── Admin specific ─── */
-.admin-layout {
-  display: flex;
-  min-height: calc(100vh - 60px);
+/* 管理端页面已改用顶部导航（Layout 的 header），内容区与 header 同宽居中对齐 */
+.admin-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-md);
+  overflow-x: hidden;
 }
-.admin-sidebar {
-  width: 220px;
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-  padding: var(--space-md) 0;
-  flex-shrink: 0;
-}
-.admin-sidebar a {
-  display: block;
-  padding: 10px 20px;
-  color: var(--gray-600);
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: all var(--transition);
-  border-left: 3px solid transparent;
-}
-.admin-sidebar a:hover { background: var(--color-primary-subtle); color: var(--color-primary); }
-.admin-sidebar a.active { background: var(--color-primary-light); color: var(--color-primary); border-left-color: var(--color-primary); }
-.admin-content { flex: 1; padding: var(--space-xl); overflow-x: hidden; }
 
 @media (max-width: 768px) {
-  .admin-layout { flex-direction: column; }
-  .admin-sidebar { width: 100%; display: flex; overflow-x: auto; padding: var(--space-sm) 0; border-right: none; border-bottom: 1px solid var(--color-border); }
-  .admin-sidebar a { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; padding: 8px 16px; }
-  .admin-sidebar a.active { border-left-color: transparent; border-bottom-color: var(--color-primary); }
   .admin-content { padding: var(--space-md); }
+}
+
+/* ─── Modal（全局，供管理端商品弹窗 + C 端支付/评价弹窗共用） ─── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.modal {
+  background: #fff; border-radius: 12px;
+  width: 90%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  animation: scaleIn 0.2s ease;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.25rem 1.5rem 0;
+}
+.modal-header h2 { margin: 0; font-size: 1.125rem; }
+.modal-close {
+  background: none; border: none; font-size: 1.5rem; cursor: pointer;
+  color: var(--color-text-secondary); line-height: 1; padding: 0 0.25rem;
+}
+.modal-close:hover { color: var(--color-text); }
+.modal-body { padding: 1rem 1.5rem; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 0.5rem;
+  padding: 0 1.5rem 1.25rem;
 }
 
 /* ─── Quantity row in detail ─── */
