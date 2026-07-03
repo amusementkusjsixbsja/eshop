@@ -100,15 +100,23 @@ CREATE TABLE IF NOT EXISTS shop.order_items (
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 支付记录表
+-- 支付记录表（v2.0 新增 transaction_no / error_message / finished_at 支持异步支付流程）
 CREATE TABLE IF NOT EXISTS shop.payment_records (
-    id          SERIAL PRIMARY KEY,
-    order_id    INTEGER NOT NULL REFERENCES shop.orders(id),
-    amount      DECIMAL(10,2) NOT NULL,
-    method      VARCHAR(50) DEFAULT 'mock',
-    status      VARCHAR(20) DEFAULT 'success',
-    created_at  TIMESTAMPTZ DEFAULT NOW()
+    id              SERIAL PRIMARY KEY,
+    order_id        INTEGER NOT NULL REFERENCES shop.orders(id),
+    amount          DECIMAL(10,2) NOT NULL,
+    method          VARCHAR(50) DEFAULT 'mock',
+    status          VARCHAR(20) DEFAULT 'success',
+    transaction_no  VARCHAR(100),
+    error_message   TEXT,
+    finished_at     TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 向前兼容：旧库无 transaction_no 列时自动追加
+ALTER TABLE shop.payment_records ADD COLUMN IF NOT EXISTS transaction_no VARCHAR(100);
+ALTER TABLE shop.payment_records ADD COLUMN IF NOT EXISTS error_message TEXT;
+ALTER TABLE shop.payment_records ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;
 
 -- 物流追踪表
 CREATE TABLE IF NOT EXISTS shop.logistics_records (

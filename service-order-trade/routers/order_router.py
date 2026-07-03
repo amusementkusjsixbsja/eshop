@@ -75,10 +75,15 @@ def get_order_detail_handler(order_id: int, user: dict = Depends(get_current_use
 
 
 @router.post("/{order_id}/pay")
-def pay_order_handler(order_id: int, body: PayOrderRequest, user: dict = Depends(get_current_user)):
-    """发起支付（返回 processing 状态，前端需轮询 /orders/{id}/payment 获取结果）。"""
+def pay_order_handler(order_id: int, body: PayOrderRequest = None, user: dict = Depends(get_current_user)):
+    """发起支付（返回 processing 状态，前端需轮询 /orders/{id}/payment 获取结果）。
+
+    body 可选——缺省则使用 payment_method="mock" 的默认支付方式，
+    兼容旧测试 / 旧客户端调用。
+    """
     uid = user["user_id"]
-    result = initiate_payment(order_id, uid, body.payment_method)
+    method = body.payment_method if body else "mock"
+    result = initiate_payment(order_id, uid, method)
     return success_response(result)
 
 

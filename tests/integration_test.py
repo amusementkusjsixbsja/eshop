@@ -55,9 +55,12 @@ class HttpClient:
 
     def request(self, method: str, path: str, body: dict = None,
                 token: str = None, internal_token: str = None) -> dict:
-        # Handle direct port access like ":8001/path" or full path
+        # Handle direct port access like ":8001/path" — 直连 Docker 暴露端口，不受 nginx 影响
         if path.startswith(":"):
-            url = f"{self.base_url}{path}"
+            # 提取基础 host（去掉 base_url 的端口），拼成 http://host:port/path
+            base_parsed = urlparse(self.base_url)
+            base_host = base_parsed.hostname or "localhost"
+            url = f"http://{base_host}{path}"
         else:
             url = f"{self.base_url}{path}"
         # URL-encode non-ASCII characters
@@ -284,13 +287,20 @@ def test_order(api: HttpClient):
     log(r.get("code") == 0 and r["data"]["status"] == "pending",
         f"订单详情 status={r['data']['status']}")
 
-    # 支付
+    # 支付（异步：返回 processing，由 process_payments 定时任务 1-3s 后完成）
     r = api.post(f"/api/shop/c-endpoint/orders/{oid}/pay", token=api.token)
     log(r.get("code") == 0, "支付订单")
 
-    # 支付后状态刷新（关键测试）
-    r = api.get(f"/api/shop/c-endpoint/orders/{oid}", token=api.token)
-    log(r["data"]["status"] == "paid", f"支付后状态刷新 status={r['data']['status']}")
+    # 支付后状态刷新（关键测试：轮询等待异步支付完成，最多 10 次 × 1 秒）
+    import time as _time
+    paid_ok = False
+    for _attempt in range(10):
+        r = api.get(f"/api/shop/c-endpoint/orders/{oid}", token=api.token)
+        if r.get("data", {}).get("status") == "paid":
+            paid_ok = True
+            break
+        _time.sleep(1)
+    log(paid_ok, f"支付后状态刷新 status={r.get('data',{}).get('status')}")
 
     # 重复支付幂等
     r = api.post(f"/api/shop/c-endpoint/orders/{oid}/pay", token=api.token)
