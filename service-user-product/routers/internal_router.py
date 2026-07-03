@@ -14,6 +14,7 @@ from shop_shared.middleware import verify_internal_token
 
 from services.user_service import get_user_by_id
 from services.product_service import get_products, get_product_by_id
+from services.review_service import get_latest_reviews, get_review_stats
 
 router = APIRouter(tags=["内部接口"], dependencies=[Depends(verify_internal_token)])
 
@@ -47,3 +48,20 @@ def get_product(product_id: int):
     if not product:
         raise NotFoundError("商品不存在")
     return success_response(product)
+
+
+@router.get("/reviews/product/{product_id}")
+def get_product_reviews_internal(
+    product_id: int,
+    limit: int = Query(10, ge=1, le=50),
+):
+    """内部接口：商品最新评价（供AI服务调用）。"""
+    reviews = get_latest_reviews(product_id, limit)
+    return success_response(reviews)
+
+
+@router.get("/reviews/product/{product_id}/stats")
+def get_product_review_stats_internal(product_id: int):
+    """内部接口：评价统计（供AI服务调用）。"""
+    stats = get_review_stats(product_id)
+    return success_response(stats)

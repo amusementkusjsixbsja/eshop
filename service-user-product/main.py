@@ -54,11 +54,13 @@ register_exception_handlers(app)
 from routers.auth_router import router as auth_router
 from routers.product_router import router as product_router
 from routers.address_router import router as address_router
+from routers.review_router import router as review_router
 from routers.internal_router import router as internal_router
 
 app.include_router(auth_router, prefix="/c-endpoint")
 app.include_router(product_router, prefix="/c-endpoint")
 app.include_router(address_router, prefix="/c-endpoint")
+app.include_router(review_router, prefix="/c-endpoint")
 app.include_router(internal_router, prefix="/internal")
 
 
