@@ -11,16 +11,24 @@ import json
 
 from fastapi import APIRouter, Depends, Query
 
+from pydantic import BaseModel
+
 from shop_shared.common import success_response
 from shop_shared.middleware import verify_internal_token
 from shop_shared.common.exceptions import NotFoundError
 
-from services.order_service import get_user_orders, get_order_detail
+from services.order_service import get_user_orders, get_order_detail, create_order_direct
 from services.logistics_service import get_logistics_by_order
 from services.after_sale_service import get_user_after_sales
 from shop_shared.infrastructure.database import get_cursor
 
 router = APIRouter(tags=["内部接口"], dependencies=[Depends(verify_internal_token)])
+
+
+class CreateOrderDirectRequest(BaseModel):
+    user_id: int
+    items: list
+    address: str
 
 
 @router.get("/orders")
@@ -51,6 +59,13 @@ def internal_get_order(order_id: int):
         if not order:
             raise NotFoundError("订单不存在")
         return success_response(order)
+
+
+@router.post("/orders/create")
+def internal_create_order(body: CreateOrderDirectRequest):
+    """AI 内部下单接口：直接创建订单（无需购物车）。"""
+    result = create_order_direct(body.user_id, body.items, body.address)
+    return success_response(result)
 
 
 @router.get("/logistics")

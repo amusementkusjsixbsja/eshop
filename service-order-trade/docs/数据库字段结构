@@ -40,3 +40,22 @@ Referenced by:
     TABLE "shop.logistics_records" CONSTRAINT "logistics_records_order_id_fkey" FOREIGN KEY (order_id) REFERENCES shop.orders(id)
     TABLE "shop.order_items" CONSTRAINT "order_items_order_id_fkey" FOREIGN KEY (order_id) REFERENCES shop.orders(id)
     TABLE "shop.payment_records" CONSTRAINT "payment_records_order_id_fkey" FOREIGN KEY (order_id) REFERENCES shop.orders(id)
+
+
+(END)
+                                          Table "shop.payment_records"
+   Column   |           Type           | Collation | Nullable |                     Default                      
+------------+--------------------------+-----------+----------+--------------------------------------------------
+ id         | integer                  |           | not null | nextval('shop.payment_records_id_seq'::regclass)
+ order_id   | integer                  |           | not null | 
+ amount     | numeric(10,2)            |           | not null | 
+ method     | character varying(50)    |           |          | 'mock'::character varying
+ status     | character varying(20)    |           |          | 'success'::character varying
+ created_at | timestamp with time zone |           |          | now()
+Indexes:
+    "payment_records_pkey" PRIMARY KEY, btree (id)
+Foreign-key constraints:
+    "payment_records_order_id_fkey" FOREIGN KEY (order_id) REFERENCES shop.orders(id)
+
+
+
