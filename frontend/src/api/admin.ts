@@ -1,5 +1,5 @@
 import client from './client'
-import type { ApiResponse, PaginatedData, Category, Product, Order } from '../types'
+import type { ApiResponse, PaginatedData, Category, Product, Order, Review } from '../types'
 
 // ─── 分类管理 ───
 
@@ -74,4 +74,14 @@ export async function adminApproveAfterSale(id: number) {
 
 export async function adminRejectAfterSale(id: number) {
   return client.patch<any, ApiResponse<{ id: number; status: string }>>(`/b-endpoint/after-sales/${id}/reject`)
+}
+
+// ─── 评价管理 ───
+
+export async function adminListReviews(params?: { page?: number; size?: number; product_id?: number; rating?: number }) {
+  return client.get<any, ApiResponse<PaginatedData<Review>>>('/b-endpoint/reviews', { params })
+}
+
+export async function adminSetReviewStatus(id: number, status: 'visible' | 'hidden') {
+  return client.patch<any, ApiResponse<Review>>(`/b-endpoint/reviews/${id}/status`, { status })
 }

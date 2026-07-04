@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { listProducts, getCategoryTree, getHotProducts } from '../../api/product'
+import ProductImage from '../../components/ProductImage'
 import type { Product, Category } from '../../types'
 
 export default function ProductListPage() {
@@ -9,6 +10,7 @@ export default function ProductListPage() {
   const [hotProducts, setHotProducts] = useState<Product[]>([])
   const [keyword, setKeyword] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>()
+  const [selectedParent, setSelectedParent] = useState<number | undefined>()
   const [loading, setLoading] = useState(true)
 
   const loadProducts = useCallback(async () => {
@@ -30,6 +32,19 @@ export default function ProductListPage() {
     loadProducts()
   }, [loadProducts])
 
+  // 选中一级分类：显示该分类下商品 + 展开其子分类
+  const selectParent = (c: Category) => {
+    setSelectedParent(c.id)
+    setSelectedCategory(c.id)
+  }
+  // 选中「全部」
+  const selectAll = () => {
+    setSelectedParent(undefined)
+    setSelectedCategory(undefined)
+  }
+  // 当前展开的一级分类的子分类
+  const childCategories = categories.find(c => c.id === selectedParent)?.children || []
+
   return (
     <div className="page animate-in">
       {/* Header */}
@@ -49,20 +64,37 @@ export default function ProductListPage() {
         <button className="btn btn-primary" onClick={loadProducts}>搜索</button>
       </div>
 
-      {/* Categories */}
+      {/* Categories — 一级分类 */}
       <div className="category-bar">
         <button
-          className={`category-btn${!selectedCategory ? ' active' : ''}`}
-          onClick={() => { setSelectedCategory(undefined) }}
+          className={`category-btn${!selectedParent ? ' active' : ''}`}
+          onClick={selectAll}
         >全部</button>
         {categories.map(c => (
           <button
             key={c.id}
-            className={`category-btn${selectedCategory === c.id ? ' active' : ''}`}
-            onClick={() => setSelectedCategory(c.id)}
+            className={`category-btn${selectedParent === c.id ? ' active' : ''}`}
+            onClick={() => selectParent(c)}
           >{c.name}</button>
         ))}
       </div>
+
+      {/* Categories — 二级分类（选中一级后显示） */}
+      {childCategories.length > 0 && (
+        <div className="category-bar" style={{ marginTop: -8, paddingLeft: 8 }}>
+          <button
+            className={`category-btn${selectedCategory === selectedParent ? ' active' : ''}`}
+            onClick={() => setSelectedCategory(selectedParent)}
+          >全部{categories.find(c => c.id === selectedParent)?.name}</button>
+          {childCategories.map(sc => (
+            <button
+              key={sc.id}
+              className={`category-btn${selectedCategory === sc.id ? ' active' : ''}`}
+              onClick={() => setSelectedCategory(sc.id)}
+            >{sc.name}</button>
+          ))}
+        </div>
+      )}
 
       {/* Hot Products Banner */}
       {hotProducts.length > 0 && (
@@ -97,12 +129,10 @@ export default function ProductListPage() {
           {products.map((p, i) => (
             <Link key={p.id} to={`/products/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="product-card animate-in" style={{ animationDelay: `${i * 0.04}s` }}>
-                <img
-                  src={p.image_url}
-                  alt={p.name}
+                <ProductImage
+                  name={p.name}
+                  categoryId={p.category_id}
                   className="product-card-img"
-                  loading="lazy"
-                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x400?text=' + p.name }}
                 />
                 <div className="product-card-body">
                   <h3 className="product-card-name">{p.name}</h3>

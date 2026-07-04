@@ -4,6 +4,7 @@ import { getProductDetail } from '../../api/product'
 import { addToCart } from '../../api/cart'
 import { getProductReviews, getProductReviewStats } from '../../api/review'
 import StarRating from '../../components/StarRating'
+import ProductImage from '../../components/ProductImage'
 import type { Product, Review, ReviewStats } from '../../types'
 
 const REVIEW_PAGE_SIZE = 10
@@ -97,11 +98,11 @@ export default function ProductDetailPage() {
       <div className="grid-2" style={{ alignItems: 'start' }}>
         {/* Image */}
         <div className="card" style={{ padding: 0, overflow: 'hidden', position: 'sticky', top: 80 }}>
-          <img
-            src={product.image_url}
-            alt={product.name}
+          <ProductImage
+            name={product.name}
+            categoryId={product.category_id}
+            size={600}
             style={{ width: '100%', height: 'auto', aspectRatio: '1', objectFit: 'cover' }}
-            onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/600?text=' + product.name }}
           />
         </div>
 

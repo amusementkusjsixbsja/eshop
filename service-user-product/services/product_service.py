@@ -45,7 +45,12 @@ def get_products(
         params = []
 
         if category_id:
-            where_clauses.append("p.category_id = %s")
+            # 含子分类：匹配该分类本身，或其直接子分类（分类树为两层）
+            where_clauses.append(
+                "(p.category_id = %s OR p.category_id IN "
+                "(SELECT id FROM shop.categories WHERE parent_id = %s))"
+            )
+            params.append(category_id)
             params.append(category_id)
 
         if keyword:

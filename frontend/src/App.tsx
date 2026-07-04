@@ -18,6 +18,7 @@ import AdminCategoryPage from './pages/admin/CategoryPage'
 import AdminProductPage from './pages/admin/ProductPage'
 import AdminOrderPage from './pages/admin/OrderPage'
 import AdminAfterSalePage from './pages/admin/AfterSalePage'
+import AdminReviewPage from './pages/admin/ReviewPage'
 
 function App() {
   const [user, setUser] = useState<{ id: number; email: string; role: string } | null>(null)
@@ -60,6 +61,7 @@ function App() {
         <Route path="/admin/products" element={<RequireAdmin><Layout><AdminProductPage /></Layout></RequireAdmin>} />
         <Route path="/admin/orders" element={<RequireAdmin><Layout><AdminOrderPage /></Layout></RequireAdmin>} />
         <Route path="/admin/after-sales" element={<RequireAdmin><Layout><AdminAfterSalePage /></Layout></RequireAdmin>} />
+        <Route path="/admin/reviews" element={<RequireAdmin><Layout><AdminReviewPage /></Layout></RequireAdmin>} />
 
         {/* 默认跳转 */}
         <Route path="/" element={<Navigate to="/products" replace />} />
