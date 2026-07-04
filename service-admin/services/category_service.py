@@ -5,9 +5,9 @@ from shop_shared.common.exceptions import NotFoundError, BusinessError
 
 
 def get_all_categories() -> list:
-    """获取全部分类（扁平列表，按 sort_order 排序）。"""
+    
     with get_cursor() as cur:
-        cur.execute("SELECT * FROM shop.categories ORDER BY sort_order")
+        cur.execute("SELECT * FROM shop.categories ORDER BY COALESCE(parent_id, id), (parent_id IS NULL) DESC, sort_order, id")
         return cur.fetchall()
 
 
